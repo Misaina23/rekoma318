@@ -1,0 +1,15 @@
+name: Render Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Render CLI
+        run: curl -sL https://cdn.render.com/cli/install.sh | bash || true
+      - name: Deploy to Render (placeholder)
+        run: echo "Deploy to Render: configure in Render dashboard or use render.com CLI with API key"

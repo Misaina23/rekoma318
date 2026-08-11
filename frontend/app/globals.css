@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 33% 98%;
+    --foreground: 150 20% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 150 20% 12%;
+    --primary: 152 58% 28%;
+    --primary-foreground: 40 33% 98%;
+    --secondary: 150 16% 94%;
+    --secondary-foreground: 152 50% 20%;
+    --muted: 150 14% 95%;
+    --muted-foreground: 150 10% 40%;
+    --accent: 38 92% 50%;
+    --accent-foreground: 150 30% 12%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 150 14% 88%;
+    --input: 150 14% 88%;
+    --ring: 152 58% 28%;
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    --background: 155 28% 7%;
+    --foreground: 40 30% 96%;
+    --card: 155 24% 10%;
+    --card-foreground: 40 30% 96%;
+    --primary: 152 55% 46%;
+    --primary-foreground: 155 30% 8%;
+    --secondary: 155 18% 16%;
+    --secondary-foreground: 40 30% 96%;
+    --muted: 155 16% 15%;
+    --muted-foreground: 150 12% 65%;
+    --accent: 38 92% 55%;
+    --accent-foreground: 155 30% 8%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 155 16% 20%;
+    --input: 155 16% 22%;
+    --ring: 152 55% 46%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-background/70 backdrop-blur-xl;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent;
+  }
+  .section-pad {
+    @apply py-20 md:py-28;
+  }
+  .container-tight {
+    @apply container max-w-5xl;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}

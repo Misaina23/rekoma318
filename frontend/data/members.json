@@ -1,0 +1,15 @@
+[
+  {
+    "id": "93fc6940-66bb-4902-bfd5-b579e8c98aae",
+    "firstName": "Test",
+    "lastName": "User",
+    "sex": "M",
+    "role": "B�n�vole",
+    "address": "",
+    "phone": "+261341234567",
+    "email": "test@x.mg",
+    "status": "active",
+    "joinedAt": "2026-08-05T12:05:11.137Z",
+    "photo": ""
+  }
+]
