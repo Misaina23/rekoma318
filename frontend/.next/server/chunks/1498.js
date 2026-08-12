@@ -1,1 +1,0 @@
-"use strict";exports.id=1498,exports.ids=[1498],exports.modules={1498:(e,t,r)=>{r.d(t,{J:()=>useReducedMotion});var u=r(9885),s=r(1894),o=r(1889);function useReducedMotion(){o.O.current||(0,s.A)();let[e]=(0,u.useState)(o.n.current);return e}}};
