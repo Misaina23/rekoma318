@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(req: NextRequest) {
-  const url = req.nextUrl.clone()
-  if (url.pathname.startsWith('/admin') && url.pathname !== '/admin/login') {
-    // In a real deployment, client-side auth checks should be used.
-    // Middleware here is a placeholder for route-level guarding.
+  const { pathname } = req.nextUrl
+
+  // Laisser librement accessible la page de connexion
+  if (pathname === '/admin/login') {
     return NextResponse.next()
   }
+
+  // Pour toutes les autres routes /admin,
+  // laisser la page gérer l'authentification côté client.
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.next()
+  }
+
   return NextResponse.next()
 }
 
