@@ -38,7 +38,7 @@ export async function forgotPassword(req, res) {
   // Always respond success to avoid user enumeration.
   if (user) {
     const resetToken = jwt.sign({ sub: user.id, purpose: 'reset' }, process.env.JWT_SECRET, { expiresIn: '1h' })
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/admin/reset-password?token=${resetToken}`
+    const resetLink = `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/admin/reset-password?token=${resetToken}`
     await passwordResetEmail(email, resetLink)
   }
   res.json({ success: true, message: 'If the account exists, a reset email has been sent.' })

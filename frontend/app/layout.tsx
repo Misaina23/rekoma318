@@ -10,7 +10,7 @@ import { GaScript } from '@/components/analytics/GaScript'
 import { fr } from '@/lib/i18n'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://rekoma-318.vercel.app'),
   title: fr.meta.title,
   icons: {
     icon: '/logo.png',

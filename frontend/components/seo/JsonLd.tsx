@@ -4,7 +4,7 @@ export function JsonLd() {
     '@type': ['Organization'],
     name: 'REKOMA',
     alternateName: 'Regroupement des Kidabo Opportunistes de Midongy Atsimo',
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://rekoma-318.vercel.app',
     logo: '/logo.png',
     description:
       'Association communautaire à but non lucratif située à Midongy Atsimo, Madagascar.',

@@ -24,7 +24,7 @@ function lanAddresses() {
 const server = http.createServer(app)
 server.listen(PORT, HOST, () => {
   console.log(`Server listening on:`)
-  console.log(`  Local:   http://localhost:${PORT}`)
+  console.log(`  Local:   http://0.0.0.0:${PORT}`)
   for (const ip of lanAddresses()) {
     console.log(`  Network: http://${ip}:${PORT}`)
   }
