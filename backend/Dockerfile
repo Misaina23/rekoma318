@@ -1,21 +1,19 @@
-# Backend REKOMA — image de déploiement (Render, Fly, etc.)
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copier d'abord les manifests pour profiter du cache de couches
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json* ./
 
-# Installer les dépendances de production + outils Prisma
-RUN npm install --omit=dev
+RUN npm install
 
-# Copier le reste du code source
 COPY . .
 
-# Générer le client Prisma (obligatoire pour @prisma/client)
 RUN npx prisma generate
 
-# Script exécuté au démarrage (migrations + seed + serveur)
 RUN chmod +x start.sh
 
 EXPOSE 4000
