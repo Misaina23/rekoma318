@@ -45,7 +45,7 @@ export default function AnalyticsPage() {
 
       <Card>
         <CardContent className="p-6 text-sm text-muted-foreground">
-          Google Analytics 4 se connecte via la variable d'environnement <code>NEXT_PUBLIC_GA_ID</code>. Les tableaux ci-dessus utilisent les données suivies localement (visiteurs, messages, dons).
+          Google Analytics 4 se connecte via la variable d&apos;environnement <code>NEXT_PUBLIC_GA_ID</code>. Les tableaux ci-dessus utilisent les données suivies localement (visiteurs, messages, dons).
         </CardContent>
       </Card>
     </div>

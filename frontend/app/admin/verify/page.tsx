@@ -33,7 +33,7 @@ export default function VerifyPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-bold">Vérification de l'email</h1>
+      <h1 className="text-2xl font-bold">Vérification de l&apos;email</h1>
       <Card>
         <CardContent className="p-6">
           <form onSubmit={onSubmit} className="space-y-4">
