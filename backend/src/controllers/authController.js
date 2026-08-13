@@ -57,6 +57,7 @@ export async function login(req, res) {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
   await prisma.refreshToken.create({ data: { token: refreshTokenValue, userId: user.id, expiresAt } })
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
 
   const cookieOpts = {
     httpOnly: true,

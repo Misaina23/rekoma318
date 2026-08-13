@@ -15,6 +15,7 @@ type Donation = {
   amount: number
   method: 'stripe' | 'mvola'
   status: 'pending' | 'validated' | 'refused'
+  providerRef?: string
   createdAt: string
 }
 

@@ -37,7 +37,7 @@ export function Footer() {
   const resources = [
     { href: '/gouvernance', label: t.nav.governance },
     { href: '/documents', label: t.nav.documents },
-    { href: '/faq', label: t.nav.faq },
+    { href: '/actualites', label: 'Actualités' },
     { href: '/contact', label: t.nav.contact },
   ]
 

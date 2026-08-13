@@ -1,25 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
-import { readJson, writeJson } from '@/lib/server/store'
-
-type Activity = {
-  id: string
-  title: string
-  responsible: string
-  date: string
-  budget: number
-  objectives: string
-  participants: number
-  results: string
-  photos: string[]
-  documents: string[]
-  status: 'planned' | 'ongoing' | 'done'
-}
+import { remoteActivities } from '@/lib/server/remote'
 
 export async function GET(req: NextRequest) {
   const { res } = requireAuth(req, 'manage_activities')
   if (res) return res
-  return NextResponse.json(await readJson<Activity[]>('activities.json', []))
+  try {
+    return NextResponse.json(await remoteActivities.list())
+  } catch (e: any) {
+    return NextResponse.json({ message: e.message }, { status: e.status || 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -27,21 +17,10 @@ export async function POST(req: NextRequest) {
   if (res) return res
   const body = await req.json().catch(() => null)
   if (!body?.title) return NextResponse.json({ message: 'Titre requis' }, { status: 400 })
-  const list = await readJson<Activity[]>('activities.json', [])
-  const item: Activity = {
-    id: crypto.randomUUID(),
-    title: String(body.title).slice(0, 200),
-    responsible: String(body.responsible || '').slice(0, 120),
-    date: String(body.date || new Date().toISOString().slice(0, 10)),
-    budget: Number(body.budget) || 0,
-    objectives: String(body.objectives || '').slice(0, 1000),
-    participants: Number(body.participants) || 0,
-    results: String(body.results || '').slice(0, 1000),
-    photos: Array.isArray(body.photos) ? body.photos.slice(0, 20) : [],
-    documents: Array.isArray(body.documents) ? body.documents.slice(0, 20) : [],
-    status: body.status || 'planned',
+  try {
+    const item = await remoteActivities.create(body)
+    return NextResponse.json(item, { status: 201 })
+  } catch (e: any) {
+    return NextResponse.json({ message: e.message }, { status: e.status || 500 })
   }
-  list.unshift(item)
-  await writeJson('activities.json', list)
-  return NextResponse.json(item, { status: 201 })
 }

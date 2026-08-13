@@ -1,63 +1,94 @@
-import fs from 'fs'
-import path from 'path'
+import { prisma } from '../lib/prisma.js'
+import { sendEmail } from '../utils/mail.js'
 
-const dataDir = path.resolve(process.cwd(), 'backend', 'data')
-const messagesFile = path.join(dataDir, 'messages.json')
-const visitsFile = path.join(dataDir, 'visits.json')
+// ---------- Messages (vitrine -> admin) ----------
+export async function postMessage(req, res) {
+  const { name, email, phone, subject, message } = req.body || {}
+  if (!name || !email || !message) {
+    return res.status(400).json({ success: false, error: 'Champs requis manquants' })
+  }
+  const item = await prisma.message.create({
+    data: {
+      name: String(name).slice(0, 200),
+      email: String(email).slice(0, 200),
+      phone: phone ? String(phone).slice(0, 40) : null,
+      subject: subject ? String(subject).slice(0, 200) : null,
+      body: String(message).slice(0, 8000),
+    },
+  })
+  // notify admin
+  await sendEmail({
+    to: process.env.CONTACT_TO_EMAIL || 'botomznanga@gmail.com',
+    subject: `Nouveau message de ${name}`,
+    html: `<p><strong>De :</strong> ${name} &lt;${email}&gt;</p><p><strong>Sujet :</strong> ${subject || '(sans objet)'}</p><p>${message}</p>`,
+    text: `De : ${name} <${email}>\nMessage : ${message}`,
+  }).catch(() => {})
+  res.status(201).json({ success: true, id: item.id })
+}
 
-function ensureDir() { if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true }) }
+// Individual messages (admin)
+export async function listMessagesGrouped(req, res) {
+  const messages = await prisma.message.findMany({
+    where: { deletedAt: null },
+    orderBy: [{ createdAt: 'desc' }],
+    include: { replies: { orderBy: { at: 'asc' } } },
+  })
+  res.json(messages)
+}
 
-export function postMessage(req, res) {
-  const { name, email, message } = req.body || {}
-  if (!name || !email || !message) return res.status(400).json({ success: false, error: 'Invalid payload' })
-  ensureDir()
-  const items = fs.existsSync(messagesFile) ? JSON.parse(fs.readFileSync(messagesFile, 'utf8')) : []
-  items.push({ id: String(Date.now()), name, email, message, createdAt: new Date().toISOString() })
-  fs.writeFileSync(messagesFile, JSON.stringify(items, null, 2))
+// Single message update (read/archived/replies)
+export async function updateMessage(req, res) {
+  const { id } = req.params
+  const data = {}
+  if (req.body.read !== undefined) data.read = Boolean(req.body.read)
+  if (req.body.archived !== undefined) data.archived = Boolean(req.body.archived)
+  if (Array.isArray(req.body.replies)) {
+    for (const r of req.body.replies) {
+      if (!r || !r.body) continue
+      await prisma.reply.create({
+        data: { messageId: id, from: String(r.from || 'REKOMA').slice(0, 120), body: String(r.body).slice(0, 8000) },
+      })
+    }
+  }
+  const item = await prisma.message.update({ where: { id }, data })
+  res.json({ success: true, item })
+}
+
+export async function deleteMessage(req, res) {
+  await prisma.message.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } })
   res.json({ success: true })
 }
 
-export function postVisit(req, res) {
-  ensureDir()
-  let data = { count: 0 }
-  if (fs.existsSync(visitsFile)) data = JSON.parse(fs.readFileSync(visitsFile, 'utf8'))
-  data.count = (data.count || 0) + 1
-  fs.writeFileSync(visitsFile, JSON.stringify(data, null, 2))
-  res.json({ success: true, count: data.count })
+// Admin reply -> persists + sends real email
+export async function replyMessage(req, res) {
+  const { id } = req.params
+  const { from, body } = req.body || {}
+  if (!body) return res.status(400).json({ success: false, error: 'Corps de réponse requis' })
+  const message = await prisma.message.findUnique({ where: { id } })
+  if (!message) return res.status(404).json({ success: false, error: 'Message introuvable' })
+
+  const reply = await prisma.reply.create({
+    data: { messageId: id, from: String(from || 'REKOMA').slice(0, 120), body: String(body).slice(0, 8000) },
+  })
+
+  const emailRes = await sendEmail({
+    to: message.email,
+    subject: `RE: ${message.subject || 'Votre message à REKOMA'}`,
+    html: `<p>${body.replace(/\n/g, '<br/>')}</p>`,
+    text: body,
+  }).catch((e) => ({ success: false, error: String(e) }))
+
+  res.json({ success: true, reply, email: emailRes })
 }
 
-export function notifyAdminLogin(req, res) {
-  // simple log for now
+// ---------- Visits ----------
+export async function postVisit(req, res) {
+  // Visits are tracked client-side / analytics; keep lightweight counter in DB optional.
+  res.json({ success: true })
+}
+
+// ---------- Admin login notify (kept for compatibility) ----------
+export async function notifyAdminLogin(req, res) {
   console.log('Admin login notify:', req.body)
   res.json({ success: true })
-}
-
-export function createDonation(req, res) {
-  try {
-    const { donor, email, phone, amount, method } = req.body || {}
-    if (!donor || !email || !amount || !['stripe', 'mvola'].includes(method)) return res.status(400).json({ success: false, error: 'Invalid donation payload' })
-    ensureDir()
-    const donationsFile = path.join(dataDir, 'donations.json')
-    const list = fs.existsSync(donationsFile) ? JSON.parse(fs.readFileSync(donationsFile, 'utf8')) : []
-    const donation = { id: String(Date.now()), donor, email, phone, amount: Number(amount), method, status: 'pending', createdAt: new Date().toISOString() }
-    list.unshift(donation)
-    fs.writeFileSync(donationsFile, JSON.stringify(list, null, 2))
-
-    // For MVola: return an instruction (frontend should follow flow)
-    if (method === 'mvola') {
-      // Real integration would create a payment request with MVola API and return details
-      return res.json({ success: true, id: donation.id, next: { provider: 'mvola', instruction: 'Dial *#123# and confirm payment with code 1234 (demo)' } })
-    }
-
-    // For Stripe: create a checkout session (server-side). Here we stub.
-    if (method === 'stripe') {
-      // In production: use Stripe SDK to create a session and return session.url
-      return res.json({ success: true, id: donation.id, next: { provider: 'stripe', url: process.env.STRIPE_DONATION_URL ?? 'https://example.com/stripe-checkout' } })
-    }
-
-    return res.json({ success: true, id: donation.id })
-  } catch (err) {
-    console.error(err)
-    return res.status(500).json({ success: false, error: 'Server error' })
-  }
 }

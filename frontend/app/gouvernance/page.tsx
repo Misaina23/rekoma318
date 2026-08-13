@@ -1,12 +1,13 @@
-'use client'
-
 import { Crown, UserRound } from 'lucide-react'
-import { useI18n } from '@/components/providers/I18nProvider'
+import { fr } from '@/lib/i18n'
 import { PageHero } from '@/components/sections/PageHero'
 import { SectionHeading } from '@/components/sections/SectionHeading'
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/Reveal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { remoteMembers } from '@/lib/server/remote'
+
+export const dynamic = 'force-dynamic'
 
 function initials(name: string) {
   return name
@@ -18,11 +19,9 @@ function initials(name: string) {
     .toUpperCase()
 }
 
-export default function GovernancePage() {
-  const { t } = useI18n()
-  const g = t.governance
-
-  const board = [g.president, g.treasurer, g.secretary, g.designer, g.advisorM, g.advisorF, g.coordinator, g.devops, g.trainer]
+export default async function GovernancePage() {
+  const g = fr.governance
+  const members = await remoteMembers.public().catch(() => [])
 
   return (
     <>
@@ -51,23 +50,35 @@ export default function GovernancePage() {
           <Reveal className="mx-auto max-w-2xl text-center">
             <SectionHeading align="center" eyebrow={g.bureauTitle} title={g.bureauTitle} />
           </Reveal>
-          <Stagger className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {board.map((m) => (
-              <StaggerItem key={m.name}>
-                <Card className="group h-full transition-transform hover:-translate-y-1">
-                  <CardContent className="flex flex-col items-center p-6 text-center">
-                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                      {initials(m.name)}
-                    </span>
-                    <Badge variant="muted" className="mt-4">
-                      {m.role}
-                    </Badge>
-                    <h3 className="mt-3 font-semibold">{m.name}</h3>
-                  </CardContent>
-                </Card>
-              </StaggerItem>
-            ))}
-          </Stagger>
+          {members.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="p-6 text-center text-sm text-muted-foreground">Aucun membre actif pour le moment.</CardContent>
+            </Card>
+          ) : (
+            <Stagger className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {members.map((m: any) => (
+                <StaggerItem key={m.id}>
+                  <Card className="group h-full transition-transform hover:-translate-y-1">
+                    <CardContent className="flex flex-col items-center p-6 text-center">
+                      {m.photo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={m.photo} alt={`${m.firstName} ${m.lastName}`} className="h-16 w-16 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
+                          {initials(`${m.firstName} ${m.lastName}`)}
+                        </span>
+                      )}
+                      <Badge variant="muted" className="mt-4">
+                        {m.designation || m.role || ''}
+                      </Badge>
+                      <h3 className="mt-3 font-semibold">{m.firstName} {m.lastName}</h3>
+                      {m.description && <p className="mt-2 text-xs text-muted-foreground">{m.description}</p>}
+                    </CardContent>
+                  </Card>
+                </StaggerItem>
+              ))}
+            </Stagger>
+          )}
         </div>
       </section>
 

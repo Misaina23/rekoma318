@@ -1,16 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { readJson, writeJson } from '@/lib/server/store'
+import { remotePublic } from '@/lib/server/remote'
 
-type Donation = {
-  id: string
-  donor: string
-  email: string
-  phone?: string
-  amount: number
-  method: 'stripe' | 'mvola'
-  status: 'pending' | 'validated' | 'refused'
-  createdAt: string
-  note?: string
+export async function GET() {
+  try {
+    const data = await remoteDonationsSafe()
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json({ donations: [], totalCollected: 0 })
+  }
+}
+
+async function remoteDonationsSafe() {
+  const { remoteDonations } = await import('@/lib/server/remote')
+  return remoteDonations.list()
 }
 
 export async function POST(req: NextRequest) {
@@ -18,19 +20,16 @@ export async function POST(req: NextRequest) {
   if (!body?.donor || !body?.email || !body?.amount || !['stripe', 'mvola'].includes(body.method)) {
     return NextResponse.json({ message: 'Données de don invalides' }, { status: 400 })
   }
-  const list = await readJson<Donation[]>('donations.json', [])
-  const donation: Donation = {
-    id: crypto.randomUUID(),
-    donor: String(body.donor).slice(0, 120),
-    email: String(body.email).slice(0, 200),
-    phone: body.phone ? String(body.phone).slice(0, 40) : '',
-    amount: Number(body.amount) || 0,
-    method: body.method,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
+  try {
+    const r = await remotePublic.postDonation({
+      donor: body.donor,
+      email: body.email,
+      phone: body.phone,
+      amount: body.amount,
+      method: body.method,
+    })
+    return NextResponse.json({ ok: true, id: r.id, status: r.status })
+  } catch (e: any) {
+    return NextResponse.json({ message: e.message }, { status: e.status || 500 })
   }
-  list.unshift(donation)
-  await writeJson('donations.json', list)
-  // Stripe / MVola integration hooks would confirm the payment here.
-  return NextResponse.json({ ok: true, id: donation.id, status: donation.status })
 }

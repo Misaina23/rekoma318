@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Plus, Pencil, Trash2, Download, X, Check } from 'lucide-react'
+import { Search, Plus, Pencil, Trash2, Download, X, Check, UserRound } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
@@ -16,10 +16,13 @@ type Member = {
   lastName: string
   sex: 'M' | 'F'
   role: string
-  address: string
-  phone: string
-  email: string
+  designation?: string
+  description?: string
+  address?: string
+  phone?: string
+  email?: string
   status: 'active' | 'inactive'
+  displayOrder?: number
   joinedAt: string
   photo?: string
 }
@@ -33,6 +36,7 @@ export default function MembersPage() {
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Member | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [userTarget, setUserTarget] = useState<Member | null>(null)
   const pageSize = 8
 
   async function load() {
@@ -71,6 +75,10 @@ export default function MembersPage() {
     const r = await fetch(`/api/admin/members/${id}`, { method: 'DELETE' })
     if (r.ok) { toast(t.admin.delete + ' ✓', 'success'); load() }
     else toast(t.admin.delete, 'error')
+  }
+
+  function openCreateUser(m: Member) {
+    setUserTarget(m)
   }
 
   return (
@@ -132,16 +140,19 @@ export default function MembersPage() {
                         {m.status === 'active' ? t.admin.active : t.admin.inactive}
                       </Badge>
                     </td>
-                    <td className="p-4">
-                      <div className="flex justify-end gap-1">
-                        <button onClick={() => { setEditing(m); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}>
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => remove(m.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}>
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+                   <td className="p-4">
+                     <div className="flex justify-end gap-1">
+                       <button onClick={() => { setEditing(m); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}>
+                         <Pencil className="h-4 w-4" />
+                       </button>
+                       <button onClick={() => openCreateUser(m)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Créer un utilisateur" aria-label="Créer un utilisateur">
+                         <UserRound className="h-4 w-4" />
+                       </button>
+                       <button onClick={() => remove(m.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}>
+                         <Trash2 className="h-4 w-4" />
+                       </button>
+                     </div>
+                   </td>
                   </tr>
                 ))}
                 {view.length === 0 && (
@@ -168,6 +179,14 @@ export default function MembersPage() {
           onSaved={() => { setShowForm(false); load() }}
         />
       )}
+
+      {userTarget && (
+        <CreateUserModal
+          member={userTarget}
+          onClose={() => setUserTarget(null)}
+          onSaved={() => setUserTarget(null)}
+        />
+      )}
     </div>
   )
 }
@@ -180,6 +199,9 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
     lastName: member?.lastName || '',
     sex: member?.sex || 'M',
     role: member?.role || '',
+    designation: member?.designation || '',
+    displayOrder: member?.displayOrder ?? 999,
+    description: member?.description || '',
     address: member?.address || '',
     phone: member?.phone || '',
     email: member?.email || '',
@@ -228,15 +250,21 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
                 <option value="M">M</option><option value="F">F</option>
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>{t.admin.function}</Label>
-              <Input value={form.role} onChange={(e) => set('role', e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>{t.admin.email}</Label>
-            <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
-          </div>
+             <div className="space-y-1.5">
+               <Label>{t.admin.function}</Label>
+               <Input value={form.role} onChange={(e) => set('role', e.target.value)} />
+             </div>
+           </div>
+           <div className="grid grid-cols-2 gap-3">
+             <div className="space-y-1.5">
+                <Label>Ordre d&apos;affichage</Label>
+               <Input type="number" value={form.displayOrder} onChange={(e) => set('displayOrder', e.target.value)} />
+             </div>
+             <div className="space-y-1.5">
+               <Label>Désignation</Label>
+               <Input value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="ex: Trésorier" />
+             </div>
+           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t.admin.phone}</Label>
@@ -252,13 +280,94 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
           </div>
           <div className="space-y-1.5">
             <Label>{t.admin.address}</Label>
-            <Textarea value={form.address} onChange={(e) => set('address', e.target.value)} />
-          </div>
-        </div>
+             <Textarea value={form.address} onChange={(e) => set('address', e.target.value)} />
+           </div>
+           <div className="space-y-1.5">
+             <Label>Description</Label>
+             <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} />
+           </div>
+         </div>
         <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
           <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }))}>{t.admin.cancel}</button>
           <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}>
             <Check className="h-4 w-4" /> {t.admin.save}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose: () => void; onSaved: () => void }) {
+  const { t } = useI18n()
+  const toast = useToast()
+  const ROLES: { value: string; label: string }[] = [
+    { value: 'viewer', label: 'Observateur' },
+    { value: 'editor', label: 'Éditeur' },
+    { value: 'manager', label: 'Gestionnaire' },
+    { value: 'admin', label: 'Administrateur' },
+    { value: 'super_admin', label: 'Super Administrateur' },
+  ]
+  const [role, setRole] = useState('viewer')
+  const [email, setEmail] = useState(member.email || '')
+  const [password, setPassword] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [tempPwd, setTempPwd] = useState('')
+
+  async function submit() {
+    setSaving(true)
+    try {
+      const r = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ memberId: member.id, email, password: password || undefined, role }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok) {
+        toast('Utilisateur créé ✓', 'success')
+        if (d.temporaryPassword) setTempPwd(d.temporaryPassword)
+        onSaved()
+      } else {
+        toast(d.error || 'Erreur', 'error')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-semibold">Créer un utilisateur</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
+          <p className="text-sm text-muted-foreground">Membre : <strong>{member.firstName} {member.lastName}</strong></p>
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email du membre" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Rôle</Label>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Mot de passe temporaire (optionnel)</Label>
+            <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="généré si vide" />
+          </div>
+          {tempPwd && (
+            <div className="rounded-lg bg-secondary p-3 text-sm">
+              Mot de passe temporaire : <code>{tempPwd}</code>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
+          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }))}>{t.admin.cancel}</button>
+          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}>
+            <Check className="h-4 w-4" /> Créer
           </button>
         </div>
       </div>

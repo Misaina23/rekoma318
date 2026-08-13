@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
-import { readJson, writeJson } from '@/lib/server/store'
+import { remoteMessages } from '@/lib/server/remote'
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const { res } = requireAuth(req, 'manage_messages')
   if (res) return res
-  const list = await readJson<any[]>('messages.json', [])
-  await writeJson('messages.json', list.filter((m) => m.id !== params.id))
-  return NextResponse.json({ ok: true })
+  try {
+    await remoteMessages.remove(params.id)
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ message: e.message }, { status: e.status || 500 })
+  }
 }

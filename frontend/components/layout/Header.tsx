@@ -35,11 +35,11 @@ export function Header() {
       { href: '/impact', label: t.nav.impact },
       { href: '/gouvernance', label: t.nav.governance },
       { href: '/documents', label: t.nav.documents },
-      { href: '/faq', label: t.nav.faq },
+      { href: '/actualites', label: 'Actualités' },
       { href: '/don', label: t.nav.don },
       { href: '/contact', label: t.nav.contact },
     ],
-    [t.nav.about, t.nav.contact, t.nav.documents, t.nav.don, t.nav.faq, t.nav.governance, t.nav.home, t.nav.impact, t.nav.pdima]
+    [t.nav.about, t.nav.contact, t.nav.documents, t.nav.don, t.nav.governance, t.nav.home, t.nav.impact, t.nav.pdima]
   )
 
   return (

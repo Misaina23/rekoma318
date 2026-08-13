@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   Users,
+  UserCheck,
   Mail,
   CalendarDays,
   GraduationCap,
@@ -24,6 +25,7 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
   { href: '/admin', key: 'dashboard', icon: LayoutDashboard, capability: 'view_dashboard' },
   { href: '/admin/members', key: 'members', icon: Users, capability: 'manage_members' },
+  { href: '/admin/beneficiaries', key: 'beneficiaries', icon: UserCheck, capability: 'manage_beneficiaries' },
   { href: '/admin/messages', key: 'messages', icon: Mail, capability: 'manage_messages' },
   { href: '/admin/activities', key: 'activities', icon: CalendarDays, capability: 'manage_activities' },
   { href: '/admin/formations', key: 'formations', icon: GraduationCap, capability: 'manage_formations' },

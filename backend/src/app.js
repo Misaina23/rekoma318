@@ -12,6 +12,13 @@ import authRoutes from './routes/auth.js'
 import producteursRoutes from './routes/producteurs.js'
 import cmsRoutes from './routes/cms.js'
 import miscRoutes from './routes/misc.js'
+import membersRoutes from './routes/members.js'
+import beneficiariesRoutes from './routes/beneficiaries.js'
+import donationsRoutes from './routes/donations.js'
+import verificationRoutes from './routes/verification.js'
+import usersRoutes from './routes/users.js'
+import mvolaRoutes from './routes/mvola.js'
+import stripeRoutes from './routes/stripe.js'
 
 dotenv.config()
 
@@ -34,6 +41,13 @@ app.use('/api/auth', authRoutes)
 app.use('/api/producteurs', producteursRoutes)
 app.use('/api/cms', cmsRoutes)
 app.use('/api', miscRoutes)
+app.use('/api/members', membersRoutes)
+app.use('/api/beneficiaries', beneficiariesRoutes)
+app.use('/api/donations', donationsRoutes)
+app.use('/api/verification', verificationRoutes)
+app.use('/api/users', usersRoutes)
+app.use('/api/mvola', mvolaRoutes)
+app.use('/api/stripe', stripeRoutes)
 
 // 404
 app.use((req, res, next) => next(createError(404)))

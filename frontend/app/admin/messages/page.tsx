@@ -17,7 +17,7 @@ type Msg = {
   email: string
   phone?: string
   subject: string
-  message: string
+  body: string
   createdAt: string
   read: boolean
   archived: boolean
@@ -137,7 +137,7 @@ export default function AdminMessagesPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-border bg-secondary/40 p-4 text-sm">{selected.message}</div>
+                  <div className="mt-4 rounded-xl border border-border bg-secondary/40 p-4 text-sm">{selected.body}</div>
 
                   {selected.replies.map((r, i) => (
                     <div key={i} className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
