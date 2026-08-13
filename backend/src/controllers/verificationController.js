@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import bcrypt from 'bcrypt'
 import { prisma } from '../lib/prisma.js'
-import { sendEmail } from '../utils/mail.js'
+import { twoFactorEmail } from '../utils/mail.js'
 import { createAccessToken, createRefreshTokenValue } from './authController.js'
 
 const CODE_TTL_MS = 10 * 60 * 1000
@@ -36,12 +36,7 @@ export async function request2FA(req, res) {
   await prisma.twoFactorToken.create({
     data: { userId: user.id, code, expiresAt: new Date(Date.now() + CODE_TTL_MS), sessionId },
   })
-  await sendEmail({
-    to: normalizedEmail,
-    subject: 'Votre code de vérification REKOMA',
-    html: `<p>Votre code de vérification à 2 facteurs est : <strong>${code}</strong></p><p>Il expire dans 10 minutes.</p>`,
-    text: `Votre code de vérification REKOMA : ${code} (expire dans 10 minutes).`,
-  }).catch(() => {})
+  await twoFactorEmail(normalizedEmail, code)
 
   res.json({ success: true, sessionId, message: 'Code envoyé par email' })
 }

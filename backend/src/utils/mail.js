@@ -1,36 +1,32 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 
-// Instantiate Resend only when API key is present to avoid errors at module import time.
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+const transporter = nodemailer.createTransport({
+  host: process.env.MAIL_HOST || 'smtp.gmail.com',
+  port: Number(process.env.MAIL_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.MAIL_USERNAME,
+    pass: process.env.MAIL_PASSWORD,
+  },
+})
 
-const from = `${process.env.RESEND_FROM_NAME || 'REKOMA'} <${process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'}>`
+const from = `${process.env.MAIL_FROM_NAME || 'REKOMA'} <${process.env.MAIL_FROM_ADDRESS || 'andrianisaina23@gmail.com'}>`
 
-/**
- * Send a transactional email via Resend.
- * Fails soft: logs the error but never throws (email must not break the request).
- */
 export async function sendEmail({ to, subject, html, text }) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('[mail] RESEND_API_KEY missing — email not sent')
+  if (!process.env.MAIL_USERNAME || !process.env.MAIL_PASSWORD) {
+    console.warn('[mail] SMTP credentials missing — email not sent')
     return { success: false, skipped: true }
   }
   try {
-    if (!resend) {
-      console.warn('[mail] Resend client not instantiated — email not sent')
-      return { success: false, skipped: true }
-    }
-    const { data, error } = await resend.emails.send({
+    const info = await transporter.sendMail({
       from,
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
       text,
     })
-    if (error) {
-      console.error('[mail] Resend error:', error)
-      return { success: false, error }
-    }
-    return { success: true, data }
+    console.log('[mail] sent', info.messageId)
+    return { success: true, data: info }
   } catch (err) {
     console.error('[mail] send failed:', err)
     return { success: false, error: err }
@@ -61,6 +57,15 @@ export function contactNotificationEmail({ name, email, subject, message }) {
     subject: `Nouveau message de contact : ${subject || '(sans objet)'}`,
     html: `<p><strong>De :</strong> ${name} &lt;${email}&gt;</p><p><strong>Message :</strong></p><p>${message}</p>`,
     text: `De : ${name} <${email}>\nMessage : ${message}`,
+  })
+}
+
+export function twoFactorEmail(email, code) {
+  return sendEmail({
+    to: email,
+    subject: 'Votre code de vérification REKOMA',
+    html: `<p>Votre code de vérification à 2 facteurs est : <strong>${code}</strong></p><p>Il expire dans 10 minutes.</p>`,
+    text: `Votre code de vérification REKOMA : ${code} (expire dans 10 minutes).`,
   })
 }
 
