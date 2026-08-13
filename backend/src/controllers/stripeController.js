@@ -1,9 +1,21 @@
 import Stripe from 'stripe'
 import { prisma } from '../lib/prisma.js'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-06-20' })
+// Lazy load Stripe to avoid initialization errors if key is missing
+let stripe = null
+function getStripe() {
+  if (!stripe && process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
+  }
+  return stripe
+}
 
 export async function createStripePaymentIntent(req, res) {
+  const stripeClient = getStripe()
+  if (!stripeClient) {
+    return res.status(503).json({ success: false, error: 'Stripe not configured' })
+  }
+
   const { donor, email, phone, amount, description } = req.body || {}
   if (!amount || !email) return res.status(400).json({ success: false, error: 'Montant et email requis' })
 
@@ -20,7 +32,7 @@ export async function createStripePaymentIntent(req, res) {
 
   try {
     const amountInCents = Math.round(Number(amount) || 0)
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await stripeClient.paymentIntents.create({
       amount: amountInCents,
       currency: 'usd',
       payment_method_types: ['card'],
@@ -38,10 +50,17 @@ export async function createStripePaymentIntent(req, res) {
 }
 
 export async function stripeWebhook(req, res) {
+  const stripeClient = getStripe()
+  if (!stripeClient) {
+    return res.status(503).json({ received: false, error: 'Stripe not configured' })
+  }
+
   const sig = req.headers['stripe-signature']
   let event
   try {
-    event = stripe.webhooks.constructEvent(await req.text(), sig, process.env.STRIPE_WEBHOOK_SECRET || '')
+    // Use raw body for webhook verification - Express stores it in req.rawBody if configured
+    const body = req.rawBody || JSON.stringify(req.body)
+    event = stripeClient.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET || '')
   } catch (err) {
     console.error('Stripe webhook signature error:', err)
     return res.status(400).json({ received: false })

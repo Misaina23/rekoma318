@@ -9,11 +9,14 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { remotePayments } from '@/lib/server/remote'
-import { loadStripe } from '@stripe/stripe-js'
+import { loadStripe, Stripe as StripeType } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
 import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
+// Safely load Stripe only if publishable key is configured
+const stripePromise: Promise<StripeType | null> = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : Promise.resolve(null)
 
 const PRESETS = [5000, 10000, 25000, 50000, 100000]
 
