@@ -6,6 +6,11 @@ import { welcomeEmail, passwordResetEmail } from '../utils/mail.js'
 
 const prisma = new PrismaClient()
 
+const JWT_SECRET = process.env.JWT_SECRET?.trim()
+if (!JWT_SECRET) {
+  console.error('JWT_SECRET is not set in environment variables')
+}
+
 let emailVerifiedEnabled = true
 try {
   await prisma.$queryRaw`SELECT 1 FROM "User" LIMIT 0`
@@ -15,7 +20,8 @@ try {
 }
 
 export function createAccessToken(user) {
-  return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' })
+  if (!JWT_SECRET) throw new Error('JWT_SECRET is not configured')
+  return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' })
 }
 
 export function createRefreshTokenValue() {
@@ -49,7 +55,7 @@ export async function forgotPassword(req, res) {
   const user = await prisma.user.findUnique({ where: { email } })
   // Always respond success to avoid user enumeration.
   if (user) {
-    const resetToken = jwt.sign({ sub: user.id, purpose: 'reset' }, process.env.JWT_SECRET, { expiresIn: '1h' })
+    const resetToken = jwt.sign({ sub: user.id, purpose: 'reset' }, JWT_SECRET, { expiresIn: '1h' })
     const resetLink = `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/admin/reset-password?token=${resetToken}`
     await passwordResetEmail(email, resetLink)
   }
@@ -142,7 +148,7 @@ export async function me(req, res) {
   const token = req.cookies?.accessToken
   if (!token) return res.status(401).json({ success: false, error: 'Unauthorized' })
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET)
+    const payload = jwt.verify(token, JWT_SECRET)
     const user = await prisma.user.findUnique({ where: { id: payload.sub } })
     if (!user) return res.status(404).json({ success: false, error: 'User not found' })
     res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, name: user.name } })
