@@ -1,35 +1,75 @@
 import nodemailer from 'nodemailer'
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST || 'smtp.gmail.com',
-  port: Number(process.env.MAIL_PORT || 587),
-  secure: false,
-  auth: {
-    user: process.env.MAIL_USERNAME,
-    pass: process.env.MAIL_PASSWORD,
-  },
-})
+let transporter = null
 
-const from = `${process.env.MAIL_FROM_NAME || 'REKOMA'} <${process.env.MAIL_FROM_ADDRESS || 'andrianisaina23@gmail.com'}>`
+function getTransporter() {
+  if (transporter) return transporter
+
+  const host = process.env.MAIL_HOST
+  const port = Number(process.env.MAIL_PORT || 587)
+  const encryption = String(process.env.MAIL_ENCRYPTION || '').toLowerCase()
+  const secure = encryption === 'ssl' || port === 465
+  const user = process.env.MAIL_USERNAME
+  const pass = process.env.MAIL_PASSWORD
+
+  if (!host || !user || !pass) {
+    console.warn('[mail] SMTP configuration missing (MAIL_HOST/MAIL_USERNAME/MAIL_PASSWORD)')
+    return null
+  }
+
+  transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  })
+
+  return transporter
+}
+
+const from = `${process.env.MAIL_FROM_NAME || 'REKOMA'} <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME || 'andrianisaina23@gmail.com'}>`
+
+export async function verifySMTP() {
+  const t = getTransporter()
+  if (!t) return { success: false, error: 'SMTP configuration missing' }
+  try {
+    const result = await t.verify()
+    console.log('[mail] SMTP verified:', result)
+    return { success: true, data: result }
+  } catch (err) {
+    console.error('[mail] SMTP verification failed:', err.message)
+    return { success: false, error: err.message }
+  }
+}
 
 export async function sendEmail({ to, subject, html, text }) {
-  if (!process.env.MAIL_USERNAME || !process.env.MAIL_PASSWORD) {
-    console.warn('[mail] SMTP credentials missing — email not sent')
-    return { success: false, skipped: true }
+  const t = getTransporter()
+  if (!t) {
+    return { success: false, skipped: true, error: 'SMTP not configured' }
   }
+
   try {
-    const info = await transporter.sendMail({
+    const info = await t.sendMail({
       from,
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
       text,
     })
-    console.log('[mail] sent', info.messageId)
+    console.log('[mail] sent', {
+      messageId: info.messageId,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+    })
     return { success: true, data: info }
   } catch (err) {
-    console.error('[mail] send failed:', err)
-    return { success: false, error: err }
+    console.error('[mail] send failed:', {
+      error: err.message,
+      code: err.code,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+    })
+    return { success: false, error: err.message }
   }
 }
 
@@ -57,6 +97,15 @@ export function contactNotificationEmail({ name, email, subject, message }) {
     subject: `Nouveau message de contact : ${subject || '(sans objet)'}`,
     html: `<p><strong>De :</strong> ${name} &lt;${email}&gt;</p><p><strong>Message :</strong></p><p>${message}</p>`,
     text: `De : ${name} <${email}>\nMessage : ${message}`,
+  })
+}
+
+export function emailVerificationEmail(email, link) {
+  return sendEmail({
+    to: email,
+    subject: 'Vérifiez votre adresse email REKOMA',
+    html: `<p>Cliquez sur le lien suivant pour vérifier votre adresse email :</p><p><a href="${link}">${link}</a></p>`,
+    text: `Vérifiez votre adresse email : ${link}`,
   })
 }
 

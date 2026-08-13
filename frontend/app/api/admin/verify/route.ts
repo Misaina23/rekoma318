@@ -15,15 +15,14 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ message: 'Session invalide' }, { status: 401 })
   }
-  if (!payload?.email || !payload?.password) {
-    return NextResponse.json({ message: 'Session invalide' }, { status: 401 })
-  }
+  const sessionId = payload?.sessionId
+  if (!sessionId) return NextResponse.json({ message: 'Session invalide' }, { status: 401 })
 
   try {
     const r = await fetch(`${API}/api/verification/2fa/verify`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: payload.email, code: body.code }),
+      body: JSON.stringify({ sessionId, code: body.code }),
     })
     const data = await r.json().catch(() => ({}))
     if (!r.ok) return NextResponse.json({ message: data.error || 'Code incorrect' }, { status: r.status })
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
     const adminRes = NextResponse.json({ ok: true, verified: true, user: data.user })
     adminRes.cookies.set('rekoma_admin', Buffer.from(JSON.stringify({ email: data.user.email, role: data.user.role })).toString('base64'), {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'none',
       path: '/',
       maxAge: 60 * 60 * 8,
     })

@@ -26,8 +26,9 @@ export default function ForgotPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      if (r.ok) toast('Email de réinitialisation envoyé (démo).', 'success')
-      else toast(t.admin.invalid, 'error')
+      const data = await r.json().catch(() => ({}))
+      if (r.ok) toast(data.message || 'Email de réinitialisation envoyé.', 'success')
+      else toast(data.message || t.admin.invalid, 'error')
     } finally {
       setLoading(false)
     }

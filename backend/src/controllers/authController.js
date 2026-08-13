@@ -2,7 +2,8 @@ import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
-import { welcomeEmail, passwordResetEmail } from '../utils/mail.js'
+import { welcomeEmail, passwordResetEmail, emailVerificationEmail } from '../utils/mail.js'
+import { rateLimit } from '../middleware/rateLimiter.js'
 
 const prisma = new PrismaClient()
 
@@ -11,21 +12,20 @@ if (!JWT_SECRET) {
   console.error('JWT_SECRET is not set in environment variables')
 }
 
-let emailVerifiedEnabled = true
-try {
-  await prisma.$queryRaw`SELECT 1 FROM "User" LIMIT 0`
-  await prisma.$queryRaw`SELECT "emailVerified" FROM "User" LIMIT 0`
-} catch {
-  emailVerifiedEnabled = false
-}
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000 // 1 hour
+const MAX_RESET_ATTEMPTS = 3
 
-export function createAccessToken(user) {
+function createAccessToken(user) {
   if (!JWT_SECRET) throw new Error('JWT_SECRET is not configured')
   return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' })
 }
 
-export function createRefreshTokenValue() {
+function createRefreshTokenValue() {
   return crypto.randomUUID?.() ?? crypto.randomBytes(32).toString('hex')
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex')
 }
 
 export async function register(req, res) {
@@ -39,10 +39,27 @@ export async function register(req, res) {
 
   const hashed = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({
-    data: { email: normalizedEmail, password: hashed, name: name || null, role: role || 'viewer' },
+    data: {
+      email: normalizedEmail,
+      password: hashed,
+      name: name || null,
+      role: role || 'viewer',
+      emailVerified: false,
+    },
   })
 
   await welcomeEmail(name || normalizedEmail, normalizedEmail)
+
+  const token = crypto.randomUUID()
+  await prisma.emailVerification.create({
+    data: {
+      email: normalizedEmail,
+      token,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
+  })
+  const link = `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/verify-email?token=${token}`
+  await emailVerificationEmail(normalizedEmail, link).catch((e) => console.error('verification email failed:', e.message))
 
   res.status(201).json({
     success: true,
@@ -52,14 +69,52 @@ export async function register(req, res) {
 
 export async function forgotPassword(req, res) {
   const { email } = req.body
-  const user = await prisma.user.findUnique({ where: { email } })
-  // Always respond success to avoid user enumeration.
-  if (user) {
-    const resetToken = jwt.sign({ sub: user.id, purpose: 'reset' }, JWT_SECRET, { expiresIn: '1h' })
-    const resetLink = `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/admin/reset-password?token=${resetToken}`
-    await passwordResetEmail(email, resetLink)
+  const normalizedEmail = String(email || '').trim().toLowerCase()
+
+  const rateKey = `forgot:${normalizedEmail}`
+  const rl = rateLimit(rateKey)
+  if (!rl.allowed) {
+    return res.status(429).json({ success: false, error: 'Trop de tentatives. Réessayez plus tard.' })
   }
-  res.json({ success: true, message: 'If the account exists, a reset email has been sent.' })
+
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+  if (user) {
+    const rawToken = crypto.randomUUID()
+    const tokenHash = hashToken(rawToken)
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS)
+
+    await prisma.passwordReset.create({
+      data: {
+        userId: user.id,
+        email: normalizedEmail,
+        tokenHash,
+        expiresAt,
+      },
+    })
+
+    const resetLink = `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/admin/reset-password?token=${rawToken}`
+    await passwordResetEmail(normalizedEmail, resetLink)
+  }
+
+  res.json({ success: true, message: 'Si cette adresse existe, un e-mail de réinitialisation a été envoyé.' })
+}
+
+export async function resetPassword(req, res) {
+  const { token, password } = req.body
+  if (!token || !password) return res.status(400).json({ success: false, error: 'Token et mot de passe requis' })
+
+  const tokenHash = hashToken(token)
+  const record = await prisma.passwordReset.findFirst({
+    where: { tokenHash, used: false, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (!record) return res.status(400).json({ success: false, error: 'Token invalide ou expiré' })
+
+  const hashed = await bcrypt.hash(password, 12)
+  await prisma.user.update({ where: { id: record.userId }, data: { password: hashed } })
+  await prisma.passwordReset.update({ where: { id: record.id }, data: { used: true } })
+
+  res.json({ success: true, message: 'Mot de passe réinitialisé' })
 }
 
 export async function login(req, res) {
@@ -70,8 +125,12 @@ export async function login(req, res) {
 
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) return res.status(401).json({ success: false, error: 'Invalid credentials' })
-  if (emailVerifiedEnabled && !user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié. Vérifiez votre adresse email avant de vous connecter.' })
   if (user.active === false) return res.status(403).json({ success: false, error: 'Compte désactivé' })
+  if (emailVerifiedEnabled && !user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié. Vérifiez votre adresse email avant de vous connecter.' })
+
+  if (user.twoFactorEnabled) {
+    return res.json({ success: true, requiresTwoFactor: true, user: { id: user.id, email: user.email, role: user.role, name: user.name } })
+  }
 
   const accessToken = createAccessToken(user)
   const refreshTokenValue = createRefreshTokenValue()

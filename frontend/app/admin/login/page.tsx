@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/toast'
 import { Input, Label } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { login, request2FA, verify2FA, resend2FA } from '@/lib/api'
 
 export default function AdminLoginPage() {
   const { t } = useI18n()
@@ -20,6 +21,8 @@ export default function AdminLoginPage() {
   const [code, setCode] = useState('')
   const [step, setStep] = useState<'credentials' | 'twofa'>('credentials')
   const [loading, setLoading] = useState(false)
+  const [sessionId, setSessionId] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -30,16 +33,20 @@ export default function AdminLoginPage() {
         toast('Format email invalide', 'error')
         return
       }
-      const r = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email: emailVal, password }),
-      })
-      const data = await r.json().catch(() => ({}))
-      if (!r.ok) { toast(data.message || t.admin.invalid, 'error'); return }
-      setStep('twofa')
-    } catch {
-      toast(t.admin.invalid, 'error')
+      const data = await login(emailVal, password)
+      if (data?.requiresTwoFactor) {
+        const twoFaData = await request2FA(emailVal, password)
+        if (twoFaData?.sessionId) {
+          setSessionId(twoFaData.sessionId)
+          setStep('twofa')
+          setResendCooldown(10)
+        }
+      } else {
+        router.push('/admin')
+        router.refresh()
+      }
+    } catch (e: any) {
+      toast(e.message || t.admin.invalid, 'error')
     } finally {
       setLoading(false)
     }
@@ -49,16 +56,29 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const r = await fetch('/api/admin/verify', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ code }),
-      })
-      if (!r.ok) { toast(t.admin.invalid, 'error'); return }
-      router.push('/admin')
-      router.refresh()
-    } catch {
-      toast(t.admin.invalid, 'error')
+      const data = await verify2FA(sessionId, code)
+      if (data?.verified) {
+        const payload = Buffer.from(JSON.stringify({ email: data.user.email, role: data.user.role })).toString('base64')
+        document.cookie = `rekoma_admin=${payload}; path=/; max-age=${60 * 60 * 8}`
+        router.push('/admin')
+        router.refresh()
+      }
+    } catch (e: any) {
+      toast(e.message || t.admin.invalid, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function onResend() {
+    if (resendCooldown > 0) return
+    setLoading(true)
+    try {
+      await resend2FA(sessionId)
+      setResendCooldown(10)
+      toast('Code renvoyé', 'success')
+    } catch (e: any) {
+      toast(e.message || 'Erreur', 'error')
     } finally {
       setLoading(false)
     }
@@ -114,14 +134,18 @@ export default function AdminLoginPage() {
         ) : (
           <form onSubmit={onVerify} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <KeyRound className="h-4 w-4" /> Vérification à deux facteurs (démo)
+              <KeyRound className="h-4 w-4" /> Vérification à deux facteurs
             </div>
+            <p className="text-xs text-muted-foreground">Veuillez vérifier vos emails</p>
             <div className="space-y-1.5">
               <Label>Code</Label>
               <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" autoFocus />
             </div>
             <button type="submit" disabled={loading} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
               {t.admin.submit}
+            </button>
+            <button type="button" onClick={onResend} disabled={loading || resendCooldown > 0} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-full')}>
+              {resendCooldown > 0 ? `Renvoyer le code dans ${resendCooldown}s` : 'Renvoyer le code'}
             </button>
           </form>
         )}

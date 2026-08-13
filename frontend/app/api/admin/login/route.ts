@@ -22,9 +22,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: data.error || 'Identifiants invalides' }, { status: r.status })
     }
 
-    const user = data.user || {}
-    const sessionPayload = JSON.stringify({ email: user.email, password: body.password })
-    const adminRes = NextResponse.json({ ok: true, user })
+    const twoFa = await fetch(`${API}/api/verification/2fa/request`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: body.email, password: body.password }),
+    })
+    const twoFaData = await twoFa.json().catch(() => ({}))
+    if (!twoFa.ok) {
+      return NextResponse.json({ message: twoFaData.error || 'Échec de l\'envoi du code 2FA' }, { status: twoFa.status })
+    }
+
+    const sessionPayload = JSON.stringify({ email: body.email, sessionId: twoFaData.sessionId })
+    const adminRes = NextResponse.json({ ok: true, sessionId: twoFaData.sessionId })
     adminRes.cookies.set('rekoma_admin', Buffer.from(sessionPayload).toString('base64'), {
       httpOnly: true,
       sameSite: 'lax',

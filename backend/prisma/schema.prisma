@@ -20,9 +20,11 @@ model User {
   lastLoginAt     DateTime?        @db.Timestamptz(6)
   memberId        String?          @unique
   permissions     Json?
+  twoFactorEnabled Boolean        @default(false)
   refreshTokens   RefreshToken[]
   twoFactorTokens TwoFactorToken[]
   member          Member?          @relation(fields: [memberId], references: [id])
+  passwordResets  PasswordReset[]
 }
 
 model Producteur {
@@ -187,22 +189,40 @@ model Beneficiary {
 model TwoFactorToken {
   id        String   @id @default(cuid())
   userId    String
-  code      String
+  email     String
+  sessionId String   @unique
+  codeHash  String
   expiresAt DateTime
   used      Boolean  @default(false)
   attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([code])
   @@index([userId])
+  @@index([sessionId])
+  @@index([email])
 }
 
 model EmailVerification {
   id        String   @id @default(cuid())
   email     String   @unique
-  token     String
+  token     String   @unique
   expiresAt DateTime
   verified  Boolean  @default(false)
 
   @@index([token])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  email     String
+  tokenHash String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId])
 }
