@@ -1,46 +1,13 @@
-import { prisma } from '../lib/prisma.js';
-import jwt from 'jsonwebtoken';
+import { PrismaClient } from '@prisma/client';
 
-export const authenticateToken = async (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+const globalForPrisma = globalThis;
 
-    if (!token) {
-        return res.status(401).json({ error: "Jeton d'authentification manquant" });
-    }
+// Crée le client Prisma ou réutilise l'existant (évite de multiplier les connexions)
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = prisma;
+}
 
-        // Récupérer l'utilisateur depuis la base de données
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            include: {
-                member: true,
-                userRoles: {
-                    include: {
-                        role: {
-                            include: {
-                                rolePermissions: {
-                                    include: { permission: true }
-                                }
-                            }
-                        }
-                    }
-                },
-                userPermissions: {
-                    include: { permission: true }
-                }
-            }
-        });
-
-        if (!user || !user.isActive) {
-            return res.status(403).json({ error: "Compte inactif ou utilisateur introuvable" });
-        }
-
-        req.user = user;
-        next();
-    } catch (error) {
-        return res.status(403).json({ error: "Jeton invalide ou expiré" });
-    }
-};
+// Export par défaut pour supporter les deux syntaxes d'import
+export default prisma;
