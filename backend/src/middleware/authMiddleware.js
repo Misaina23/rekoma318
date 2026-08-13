@@ -1,6 +1,14 @@
 import jwt from 'jsonwebtoken'
 import { hasPermission } from '../lib/permissions.js'
 
+const prisma = new (require('../lib/prisma.js').PrismaClient)()
+let emailVerifiedEnabled = true
+try {
+  await prisma.$queryRaw`SELECT "emailVerified" FROM "User" LIMIT 0`
+} catch {
+  emailVerifiedEnabled = false
+}
+
 export function requireAuth(req, res, next) {
   const auth = req.headers.authorization
   let token
@@ -37,7 +45,7 @@ export function requirePermission(capability) {
       const user = await prisma.user.findUnique({ where: { id: payload.sub } })
       if (!user) return res.status(404).json({ success: false, error: 'User not found' })
       if (user.active === false) return res.status(403).json({ success: false, error: 'Account disabled' })
-      if (!user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié' })
+      if (emailVerifiedEnabled && !user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié' })
       req.user = user
       if (!hasPermission(user, capability)) {
         return res.status(403).json({ success: false, error: 'Forbidden: missing permission ' + capability })

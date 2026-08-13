@@ -57,7 +57,7 @@ async function mvolaRequest(path, method, body, token) {
 }
 
 export async function requestMvolaPayment(req, res) {
-  const { donor, email, phone, amount, reference, description } = req.body || {}
+  const { donor, email, phone, recipient, amount, reference, description } = req.body || {}
   if (!amount || !phone) return res.status(400).json({ success: false, error: 'Montant et téléphone requis' })
 
   const donation = await prisma.donation.create({
@@ -74,6 +74,7 @@ export async function requestMvolaPayment(req, res) {
 
   const ref = donation.providerRef
   const requestDate = new Date().toISOString()
+  const receiver = (recipient || MVOLA_DEFAULT_RECEIVER || '+261345332429').replace(/\D/g, '')
 
   try {
     const token = await getAccessToken()
@@ -82,7 +83,7 @@ export async function requestMvolaPayment(req, res) {
       currency: 'MGA',
       description: description || 'Don REKOMA',
       from: { partyIdType: 'MSISDN', partyId: String(phone).replace(/\D/g, '') },
-      to: { partyIdType: 'MSISDN', partyId: MVOLA_DEFAULT_RECEIVER.replace(/\D/g, '') },
+      to: { partyIdType: 'MSISDN', partyId: receiver },
       transactionReference: ref,
       requestDate,
     }

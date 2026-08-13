@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Search, Plus, Pencil, Trash2, X, Check, Users } from 'lucide-react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { Search, Plus, Pencil, Trash2, X, Check, Users, Eye } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
@@ -11,7 +11,15 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { remoteBeneficiaries, remoteFormations } from '@/lib/server/remote'
 
-type Beneficiary = { id: string; name: string; category: string; formationId?: string; formation?: { id: string; title: string } | null; contact?: string; createdAt?: string }
+type Beneficiary = {
+  id: string
+  name: string
+  category: string
+  formationId?: string | null
+  formation?: { id: string; title: string } | null
+  contact?: string | null
+  createdAt?: string | null
+}
 
 const CATEGORIES = ['Distribution', 'Emploi', 'Formation', 'Autre']
 
@@ -21,22 +29,37 @@ export default function BeneficiariesPage() {
   const [items, setItems] = useState<Beneficiary[]>([])
   const [stats, setStats] = useState<{ total: number; breakdown: Record<string, number> } | null>(null)
   const [q, setQ] = useState('')
+  const [debouncedQ, setDebouncedQ] = useState('')
   const [category, setCategory] = useState('')
   const [editing, setEditing] = useState<Beneficiary | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [formations, setFormations] = useState<{ id: string; title: string }[]>([])
+  const [selected, setSelected] = useState<Beneficiary | null>(null)
 
-  async function load() {
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const load = useCallback(async () => {
     const [data, st, fm] = await Promise.all([
-      remoteBeneficiaries.list(q || undefined, category || undefined).catch(() => []),
+      remoteBeneficiaries.list(debouncedQ || undefined, category || undefined).catch(() => []),
       remoteBeneficiaries.stats().catch(() => ({ total: 0, breakdown: {} })),
       remoteFormations.list().catch(() => []),
     ])
     setItems(data as Beneficiary[])
     setStats(st as any)
     setFormations(fm as any)
-  }
-  useEffect(() => { load() }, [])
+  }, [debouncedQ, category])
+
+  useEffect(() => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedQ(q)
+    }, 300)
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [q])
+
+  useEffect(() => { load() }, [load])
 
   const filtered = useMemo(() => items, [items])
 
@@ -45,6 +68,7 @@ export default function BeneficiariesPage() {
     await remoteBeneficiaries.remove(id)
     toast('Supprimé ✓', 'success')
     load()
+    if (selected?.id === id) setSelected(null)
   }
 
   return (
@@ -64,9 +88,9 @@ export default function BeneficiariesPage() {
         <div className="flex flex-wrap gap-3">
           <div className="relative min-w-[200px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => { setQ(e.target.value); setTimeout(load, 300) }} placeholder="Rechercher..." className="pl-9" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher..." className="pl-9" />
           </div>
-          <select value={category} onChange={(e) => { setCategory(e.target.value); load() }} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
             <option value="">Toutes catégories</option>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -76,43 +100,93 @@ export default function BeneficiariesPage() {
         </button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border text-left text-muted-foreground">
-                <tr>
-                  <th className="p-4 font-medium">Nom</th>
-                  <th className="p-4 font-medium">Catégorie</th>
-                  <th className="p-4 font-medium">Formation</th>
-                  <th className="p-4 font-medium">Contact</th>
-                  <th className="p-4 text-right font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((b) => (
-                  <tr key={b.id} className="border-b border-border last:border-0">
-                    <td className="p-4 font-medium">{b.name}</td>
-                    <td className="p-4"><Badge variant="outline">{b.category}</Badge></td>
-                    <td className="p-4 text-muted-foreground">{b.formation?.title || '—'}</td>
-                    <td className="p-4 text-muted-foreground">{b.contact || '—'}</td>
-                    <td className="p-4">
-                      <div className="flex justify-end gap-1">
-                        <button onClick={() => { setEditing(b); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => remove(b.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </td>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className={cn('lg:col-span-2', selected && 'hidden lg:block')}>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border text-left text-muted-foreground">
+                  <tr>
+                    <th className="p-4 font-medium">Nom</th>
+                    <th className="p-4 font-medium">Catégorie</th>
+                    <th className="p-4 font-medium">Formation</th>
+                    <th className="p-4 font-medium">Contact</th>
+                    <th className="p-4 text-right font-medium"></th>
                   </tr>
-                ))}
-                {filtered.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">Aucun bénéficiaire.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody>
+                  {filtered.map((b) => (
+                    <tr key={b.id} className={cn('border-b border-border last:border-0 cursor-pointer hover:bg-secondary/40', selected?.id === b.id && 'bg-secondary/60')} onClick={() => setSelected(b)}>
+                      <td className="p-4 font-medium">{b.name}</td>
+                      <td className="p-4"><Badge variant="outline">{b.category}</Badge></td>
+                      <td className="p-4 text-muted-foreground">{b.formation?.title || '—'}</td>
+                      <td className="p-4 text-muted-foreground">{b.contact || '—'}</td>
+                      <td className="p-4">
+                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={() => { setEditing(b); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}><Pencil className="h-4 w-4" /></button>
+                          <button onClick={() => remove(b.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filtered.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">Aucun bénéficiaire.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={cn(!selected && 'lg:col-span-3')}>
+          <CardContent className="p-6">
+            {selected ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">Détails</h2>
+                  <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Nom</p>
+                    <p className="font-medium">{selected.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Catégorie</p>
+                    <Badge variant="outline">{selected.category}</Badge>
+                  </div>
+                  {selected.formation && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Formation</p>
+                      <p className="font-medium">{selected.formation.title}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-muted-foreground">Contact</p>
+                    <p className="font-medium">{selected.contact || '—'}</p>
+                  </div>
+                  {selected.createdAt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Date d&apos;ajout</p>
+                      <p className="font-medium">{new Date(selected.createdAt).toLocaleDateString('fr-FR')}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => { setEditing(selected); setShowForm(true) }} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}><Pencil className="mr-2 h-4 w-4" /> Modifier</button>
+                  <button onClick={() => remove(selected.id)} className={cn(buttonVariants({ variant: 'destructive', size: 'sm' }))}><Trash2 className="mr-2 h-4 w-4" /> Supprimer</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
+                <Eye className="mb-2 h-8 w-8" />
+                <p>Sélectionnez un bénéficiaire pour voir les détails</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {showForm && (
-        <BeneficiaryForm beneficiary={editing} formations={formations} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
+        <BeneficiaryForm beneficiary={editing} formations={formations} onClose={() => { setShowForm(false); setEditing(null) }} onSaved={() => { setShowForm(false); setEditing(null); load() }} />
       )}
     </div>
   )

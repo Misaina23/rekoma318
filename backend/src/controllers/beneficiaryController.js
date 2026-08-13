@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js'
 
 export async function listBeneficiaries(req, res) {
   const { q, category, formationId } = req.query
-  const where = {}
+  const where = { deletedAt: null }
   if (q) where.name = { contains: q, mode: 'insensitive' }
   if (category) where.category = category
   if (formationId) where.formationId = formationId
@@ -16,14 +16,13 @@ export async function listBeneficiaries(req, res) {
 
 export async function beneficiaryStats(req, res) {
   const [total, byCategory] = await Promise.all([
-    prisma.beneficiary.count(),
-    prisma.beneficiary.groupBy({ by: ['category'], _count: { _all: true } }),
+    prisma.beneficiary.count({ where: { deletedAt: null } }),
+    prisma.beneficiary.groupBy({ by: ['category'], where: { deletedAt: null }, _count: { _all: true } }),
   ])
   const breakdown = byCategory.reduce((acc, g) => {
     acc[g.category] = g._count._all
     return acc
   }, {})
-  // ensure all known categories present
   for (const c of ['Distribution', 'Emploi', 'Formation', 'Autre']) {
     if (!(c in breakdown)) breakdown[c] = 0
   }
@@ -57,6 +56,6 @@ export async function updateBeneficiary(req, res) {
 }
 
 export async function deleteBeneficiary(req, res) {
-  await prisma.beneficiary.delete({ where: { id: req.params.id } })
+  await prisma.beneficiary.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } })
   res.json({ success: true })
 }

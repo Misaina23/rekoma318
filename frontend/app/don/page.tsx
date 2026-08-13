@@ -12,11 +12,7 @@ import { remotePayments } from '@/lib/server/remote'
 import { loadStripe, Stripe as StripeType } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
 import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
-
-// Safely load Stripe only if publishable key is configured
-const stripePromise: Promise<StripeType | null> = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : Promise.resolve(null)
+import { useTheme } from 'next-themes'
 
 const PRESETS = [5000, 10000, 25000, 50000, 100000]
 
@@ -24,14 +20,47 @@ type Step = 'form' | 'processing' | 'success' | 'error'
 
 export default function DonPage() {
   const { t } = useI18n()
+  const { theme } = useTheme()
   const toast = useToast()
   const [step, setStep] = useState<Step>('form')
   const [form, setForm] = useState({ donor: '', email: '', phone: '', amount: 10000, method: 'mvola', message: '' })
+  const [recipient, setRecipient] = useState(process.env.NEXT_PUBLIC_MVOLA_RECEIVER || '+261345332429')
   const [mvolaRef, setMvolaRef] = useState('')
   const [mvolaInstruction, setMvolaInstruction] = useState('')
+  const [mvolaStatus, setMvolaStatus] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [stripeReady, setStripeReady] = useState(false)
+  const [stripePromise, setStripePromise] = useState<Promise<StripeType | null> | null>(null)
+
+  const isDark = theme === 'dark'
+
+  useEffect(() => {
+    const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    if (!key) return
+    setStripePromise(loadStripe(key))
+    loadStripe(key).then((s) => setStripeReady(!!s)).catch(() => setStripeReady(false))
+  }, [])
+
+  useEffect(() => {
+    if (form.method === 'mvola' && mvolaRef) {
+      const interval = setInterval(async () => {
+        try {
+          const r = await remotePayments.mvolaStatus(mvolaRef)
+          if (r?.status) {
+            setMvolaStatus(r.status)
+            if (r.status === 'validated' || r.status === 'refused') {
+              clearInterval(interval)
+            }
+          }
+        } catch {
+          // ignore status check errors
+        }
+      }, 3000)
+      return () => clearInterval(interval)
+    }
+  }, [form.method, mvolaRef])
 
   function set(k: string, v: any) { setForm((f) => ({ ...f, [k]: v })) }
 
@@ -42,6 +71,10 @@ export default function DonPage() {
       return
     }
     setError('')
+    setMvolaRef('')
+    setMvolaStatus('')
+    setMvolaInstruction('')
+    setClientSecret('')
     setSaving(true)
 
     try {
@@ -50,6 +83,7 @@ export default function DonPage() {
           donor: form.donor,
           email: form.email,
           phone: form.phone,
+          recipient,
           amount: form.amount,
           description: form.message || 'Don REKOMA',
         })
@@ -112,8 +146,13 @@ export default function DonPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>{t.contact.phone}</Label>
-                <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+261 ..." />
+                <Label>Numéro destinataire (compte REKOMA)</Label>
+                <Input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="+261..." />
+                <p className="text-xs text-muted-foreground">Compte destinataire prérempli. Modifiez-le si nécessaire.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Numéro expéditeur (votre numéro MVola)</Label>
+                <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+261 ..." required />
               </div>
 
               <div className="space-y-2">
@@ -126,8 +165,24 @@ export default function DonPage() {
                     </button>
                   ))}
                 </div>
-                <Input type="number" value={form.amount} onChange={(e) => set('amount', Number(e.target.value))} className="mt-2" />
+                <Input type="number" value={form.amount} onChange={(e) => set('amount', Number(e.target.value))} className="mt-2" required />
               </div>
+
+              {form.method === 'mvola' && mvolaRef && (
+                <div className="space-y-2 rounded-xl border border-border bg-secondary/40 p-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Référence</span>
+                    <code className="rounded bg-secondary px-2 py-1 text-xs">{mvolaRef}</code>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Statut</span>
+                    <span className={cn('font-medium', mvolaStatus === 'validated' && 'text-green-600', mvolaStatus === 'refused' && 'text-destructive')}>
+                      {mvolaStatus || 'En attente...'}
+                    </span>
+                  </div>
+                  {mvolaInstruction && <p className="text-xs text-muted-foreground">{mvolaInstruction}</p>}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>{t.admin.method}</Label>
@@ -160,19 +215,32 @@ export default function DonPage() {
               <h2 className="text-xl font-bold">Don enregistré</h2>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>Référence : <code className="rounded bg-secondary px-2 py-1">{mvolaRef}</code></p>
+                <p>Statut : <span className={cn('font-medium', mvolaStatus === 'validated' && 'text-green-600', mvolaStatus === 'refused' && 'text-destructive')}>{mvolaStatus || 'En attente de confirmation'}</span></p>
                 <p>{mvolaInstruction}</p>
                 <p>Vous recevrez une confirmation par email.</p>
               </div>
             </div>
           )}
 
-          {step === 'success' && form.method === 'stripe' && clientSecret && (
+          {step === 'success' && form.method === 'stripe' && clientSecret && stripeReady && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold text-center">Paiement sécurisé</h2>
               <p className="text-sm text-muted-foreground text-center">Vos informations de carte sont chiffrées par Stripe.</p>
               <Elements
                 stripe={stripePromise}
-                options={{ clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: 'var(--primary)' } } }}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: isDark ? 'night' : 'stripe',
+                    variables: {
+                      colorPrimary: isDark ? '#60a5fa' : '#2563eb',
+                      colorBackground: isDark ? '#1f2937' : '#ffffff',
+                      colorText: isDark ? '#f9fafb' : '#111827',
+                      colorDanger: '#ef4444',
+                      fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+                    },
+                  },
+                }}
               >
                 <StripeCheckoutForm amount={form.amount} onDone={() => { setStep('success'); setClientSecret(''); setForm({ donor: '', email: '', phone: '', amount: 10000, method: 'mvola', message: '' }) }} />
               </Elements>

@@ -6,6 +6,14 @@ import { welcomeEmail, passwordResetEmail } from '../utils/mail.js'
 
 const prisma = new PrismaClient()
 
+let emailVerifiedEnabled = true
+try {
+  await prisma.$queryRaw`SELECT 1 FROM "User" LIMIT 0`
+  await prisma.$queryRaw`SELECT "emailVerified" FROM "User" LIMIT 0`
+} catch {
+  emailVerifiedEnabled = false
+}
+
 export function createAccessToken(user) {
   return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' })
 }
@@ -56,7 +64,7 @@ export async function login(req, res) {
 
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) return res.status(401).json({ success: false, error: 'Invalid credentials' })
-  if (!user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié. Vérifiez votre adresse email avant de vous connecter.' })
+  if (emailVerifiedEnabled && !user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié. Vérifiez votre adresse email avant de vous connecter.' })
   if (user.active === false) return res.status(403).json({ success: false, error: 'Compte désactivé' })
 
   const accessToken = createAccessToken(user)

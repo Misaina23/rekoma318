@@ -178,6 +178,7 @@ model Beneficiary {
   formationId String?
   contact     String?
   createdAt   DateTime   @default(now())
+  deletedAt   DateTime?  @db.Timestamptz(6)
   formation   Formation? @relation(fields: [formationId], references: [id])
 
   @@index([category])
