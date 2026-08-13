@@ -19,7 +19,15 @@ async function getData() {
 
 export default async function DocumentsPage() {
   const t = fr
-  const { documents, photos } = await getData()
+  let documents: any[] = []
+  let photos: any[] = []
+  try {
+    const data = await getData()
+    documents = data.documents
+    photos = data.photos
+  } catch {
+    // backend unreachable → show empty state instead of crashing
+  }
 
   return (
     <>

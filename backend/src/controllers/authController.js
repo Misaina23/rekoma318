@@ -6,11 +6,11 @@ import { welcomeEmail, passwordResetEmail } from '../utils/mail.js'
 
 const prisma = new PrismaClient()
 
-function createAccessToken(user) {
+export function createAccessToken(user) {
   return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '15m' })
 }
 
-function createRefreshTokenValue() {
+export function createRefreshTokenValue() {
   return crypto.randomUUID?.() ?? crypto.randomBytes(32).toString('hex')
 }
 
