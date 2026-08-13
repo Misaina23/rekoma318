@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { HeartHandshake, CreditCard, Smartphone, CheckCircle2, Loader2 } from 'lucide-react'
+import { HeartHandshake, Smartphone, CreditCard, CheckCircle2, Loader2, Lock } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
@@ -9,6 +9,11 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { remotePayments } from '@/lib/server/remote'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '')
 
 const PRESETS = [5000, 10000, 25000, 50000, 100000]
 
@@ -21,7 +26,7 @@ export default function DonPage() {
   const [form, setForm] = useState({ donor: '', email: '', phone: '', amount: 10000, method: 'mvola', message: '' })
   const [mvolaRef, setMvolaRef] = useState('')
   const [mvolaInstruction, setMvolaInstruction] = useState('')
-  const [stripeUrl, setStripeUrl] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -61,18 +66,19 @@ export default function DonPage() {
           amount: form.amount,
           description: form.message || 'Don REKOMA',
         })
-        if (r?.checkoutUrl) {
-          setStripeUrl(r.checkoutUrl)
-          window.location.href = r.checkoutUrl
+        if (r?.clientSecret) {
+          setClientSecret(r.clientSecret)
+          setStep('success')
         } else {
-          throw new Error(r?.error || 'Impossible de créer la session de paiement')
+          throw new Error(r?.error || 'Impossible de créer le paiement')
         }
       }
     } catch (e: any) {
-      setSaving(false)
       setError(e.message || 'Erreur')
       setStep('error')
       toast(error || 'Erreur', 'error')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -145,19 +151,28 @@ export default function DonPage() {
             </form>
           )}
 
-          {step === 'success' && (
+          {step === 'success' && form.method === 'mvola' && (
             <div className="space-y-4 text-center">
               <CheckCircle2 className="mx-auto h-12 w-12 text-primary" />
               <h2 className="text-xl font-bold">Don enregistré</h2>
-              {form.method === 'mvola' ? (
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>Référence : <code className="rounded bg-secondary px-2 py-1">{mvolaRef}</code></p>
-                  <p>{mvolaInstruction}</p>
-                  <p>Vous recevrez une confirmation par email.</p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Redirection vers Stripe...</p>
-              )}
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>Référence : <code className="rounded bg-secondary px-2 py-1">{mvolaRef}</code></p>
+                <p>{mvolaInstruction}</p>
+                <p>Vous recevrez une confirmation par email.</p>
+              </div>
+            </div>
+          )}
+
+          {step === 'success' && form.method === 'stripe' && clientSecret && (
+            <div className="space-y-4">
+              <h2 className="text-xl font-bold text-center">Paiement sécurisé</h2>
+              <p className="text-sm text-muted-foreground text-center">Vos informations de carte sont chiffrées par Stripe.</p>
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret, appearance: { theme: 'stripe', variables: { colorPrimary: 'var(--primary)' } } }}
+              >
+                <StripeCheckoutForm amount={form.amount} onDone={() => { setStep('success'); setClientSecret(''); setForm({ donor: '', email: '', phone: '', amount: 10000, method: 'mvola', message: '' }) }} />
+              </Elements>
             </div>
           )}
 
@@ -169,6 +184,51 @@ export default function DonPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function StripeCheckoutForm({ amount, onDone }: { amount: number; onDone: () => void }) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const toast = useToast()
+  const { t } = useI18n()
+  const [processing, setProcessing] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  async function pay() {
+    if (!stripe || !elements) return
+    setProcessing(true)
+    setErrorMsg('')
+    try {
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: 'if_required',
+      })
+      if (error) {
+        setErrorMsg(error.message || 'Erreur de paiement')
+        toast(error.message || 'Erreur', 'error')
+      } else {
+        toast('Don validé ✓', 'success')
+        onDone()
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Erreur')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-secondary/40 p-4">
+        <PaymentElement />
+      </div>
+      {errorMsg && <p className="text-sm text-destructive">{errorMsg}</p>}
+      <button onClick={pay} disabled={processing} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
+        {processing ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Traitement...</> : <><Lock className="mr-2 h-4 w-4" /> Payer {amount.toLocaleString()} Ar</>}
+      </button>
     </div>
   )
 }

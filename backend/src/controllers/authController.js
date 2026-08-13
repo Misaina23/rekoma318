@@ -16,15 +16,19 @@ function createRefreshTokenValue() {
 
 export async function register(req, res) {
   const { email, password, name, role } = req.body
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) return res.status(409).json({ success: false, error: 'Email already registered' })
+  const normalizedEmail = String(email || '').trim().toLowerCase()
+  if (!normalizedEmail) return res.status(400).json({ success: false, error: 'Email requis' })
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return res.status(400).json({ success: false, error: 'Format email invalide' })
+
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } })
+  if (existing) return res.status(409).json({ success: false, error: 'Email déjà utilisé' })
 
   const hashed = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({
-    data: { email, password: hashed, name: name || null, role: role || 'USER' },
+    data: { email: normalizedEmail, password: hashed, name: name || null, role: role || 'viewer' },
   })
 
-  await welcomeEmail(name || email, email)
+  await welcomeEmail(name || normalizedEmail, normalizedEmail)
 
   res.status(201).json({
     success: true,
@@ -46,11 +50,14 @@ export async function forgotPassword(req, res) {
 
 export async function login(req, res) {
   const { email, password } = req.body
-  const user = await prisma.user.findUnique({ where: { email } })
+  const normalizedEmail = String(email || '').trim().toLowerCase()
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } })
   if (!user) return res.status(401).json({ success: false, error: 'Invalid credentials' })
 
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) return res.status(401).json({ success: false, error: 'Invalid credentials' })
+  if (!user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié. Vérifiez votre adresse email avant de vous connecter.' })
+  if (user.active === false) return res.status(403).json({ success: false, error: 'Compte désactivé' })
 
   const accessToken = createAccessToken(user)
   const refreshTokenValue = createRefreshTokenValue()
@@ -62,19 +69,17 @@ export async function login(req, res) {
   const cookieOpts = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'none',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   }
-  // set refresh token (long-lived)
   res.cookie('refreshToken', refreshTokenValue, cookieOpts)
-  // set short-lived access token cookie (15m)
   const accessCookieOpts = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'none',
     path: '/',
-    maxAge: 15 * 60 * 1000, // 15 minutes
+    maxAge: 15 * 60 * 1000,
   }
   res.cookie('accessToken', accessToken, accessCookieOpts)
   res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, name: user.name } })
@@ -89,7 +94,6 @@ export async function refreshToken(req, res) {
     return res.status(401).json({ success: false, error: 'Invalid refresh token' })
   }
 
-  // rotate refresh token
   const newRtValue = createRefreshTokenValue()
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
@@ -100,7 +104,7 @@ export async function refreshToken(req, res) {
   const cookieOpts = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'none',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   }
@@ -108,7 +112,7 @@ export async function refreshToken(req, res) {
   const accessCookieOpts = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'none',
     path: '/',
     maxAge: 15 * 60 * 1000,
   }

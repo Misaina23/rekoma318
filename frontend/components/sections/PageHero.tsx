@@ -24,9 +24,9 @@ export function PageHero({
               {eyebrow}
             </span>
           )}
-          <h1 className="text-balance text-3xl font-bold tracking-tight md:text-5xl">{title}</h1>
+          <h1 className="text-balance text-3xl font-bold tracking-tight md:text-5xl">{String(title)}</h1>
           {description && (
-            <p className="text-balance text-lg text-muted-foreground">{description}</p>
+            <p className="text-balance text-lg text-muted-foreground">{String(description)}</p>
           )}
         </Reveal>
       </div>

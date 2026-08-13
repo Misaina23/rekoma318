@@ -7,6 +7,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'
 async function call(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API}${path}`, {
     ...init,
+    credentials: 'include',
     headers: {
       'content-type': 'application/json',
       ...(init.headers || {}),

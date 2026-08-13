@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma.js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-06-20' })
 
-export async function createStripeCheckout(req, res) {
+export async function createStripePaymentIntent(req, res) {
   const { donor, email, phone, amount, description } = req.body || {}
   if (!amount || !email) return res.status(400).json({ success: false, error: 'Montant et email requis' })
 
@@ -19,29 +19,21 @@ export async function createStripeCheckout(req, res) {
   })
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const amountInCents = Math.round(Number(amount) || 0)
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCents,
+      currency: 'usd',
       payment_method_types: ['card'],
-      mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/don?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'https://rekoma-318.vercel.app'}/don`,
-      customer_email: email,
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: { name: description || 'Don à REKOMA' },
-            unit_amount: Math.round(Number(amount) || 0),
-          },
-          quantity: 1,
-        },
-      ],
+      receipt_email: email,
+      description: description || 'Don à REKOMA',
       metadata: { donationId: donation.id },
     })
-    await prisma.donation.update({ where: { id: donation.id }, data: { providerRef: session.id } })
-    res.json({ success: true, id: donation.id, checkoutUrl: session.url })
+
+    await prisma.donation.update({ where: { id: donation.id }, data: { providerRef: paymentIntent.id } })
+    res.json({ success: true, id: donation.id, clientSecret: paymentIntent.client_secret })
   } catch (err) {
-    console.error('Stripe checkout error:', err)
-    res.status(500).json({ success: false, error: 'Impossible de créer la session de paiement' })
+    console.error('Stripe payment intent error:', err)
+    res.status(500).json({ success: false, error: 'Impossible de créer le paiement' })
   }
 }
 
@@ -55,13 +47,13 @@ export async function stripeWebhook(req, res) {
     return res.status(400).json({ received: false })
   }
 
-  const session = event.data.object
-  const donationId = session.metadata?.donationId
+  const paymentIntent = event.data.object
+  const donationId = paymentIntent.metadata?.donationId
   if (!donationId) return res.json({ received: true })
 
-  if (event.type === 'checkout.session.completed') {
-    await prisma.donation.update({ where: { id: donationId }, data: { status: 'validated', providerRef: session.payment_intent } })
-  } else if (event.type === 'checkout.session.expired' || event.type === 'checkout.session.async_payment_failed') {
+  if (event.type === 'payment_intent.succeeded') {
+    await prisma.donation.update({ where: { id: donationId }, data: { status: 'validated', providerRef: paymentIntent.id } })
+  } else if (event.type === 'payment_intent.payment_failed') {
     await prisma.donation.update({ where: { id: donationId }, data: { status: 'refused' } })
   }
 

@@ -1,23 +1,54 @@
 import crypto from 'crypto'
 import { prisma } from '../lib/prisma.js'
 
-const MVOLA_BASE = process.env.MVOLA_BASE_URL || 'https://api.mvola.mg'
+const MVOLA_TOKEN_URL = process.env.MVOLA_TOKEN_URL || 'https://pre-api.mvola.mg/token/1'
+const MVOLA_BASE = process.env.MVOLA_BASE_URL || 'https://pre-api.mvola.mg'
+const MVOLA_MERCHANT_PAY_URL = process.env.MVOLA_MERCHANT_PAY_URL || `${MVOLA_BASE}/mvola/mm/transactions/type/merchantpay/1.0.0`
 const MVOLA_API_KEY = process.env.MVOLA_API_KEY || ''
 const MVOLA_API_SECRET = process.env.MVOLA_API_SECRET || ''
 const MVOLA_MERCHANT_ID = process.env.MVOLA_MERCHANT_ID || ''
 const MVOLA_MERCHANT_PIN = process.env.MVOLA_MERCHANT_PIN || ''
 const MVOLA_DEFAULT_RECEIVER = process.env.MVOLA_DEFAULT_RECEIVER || '+261345332429'
 
-function basicAuth() {
-  return Buffer.from(`${MVOLA_API_KEY}:${MVOLA_API_SECRET}`).toString('base64')
+let accessTokenCache = { token: null, expiresAt: 0 }
+
+async function getAccessToken() {
+  if (accessTokenCache.token && Date.now() < accessTokenCache.expiresAt) {
+    return accessTokenCache.token
+  }
+
+  const auth = Buffer.from(`${MVOLA_API_KEY}:${MVOLA_API_SECRET}`).toString('base64')
+  const res = await fetch(MVOLA_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization: `Basic ${auth}`,
+    },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+    }),
+  })
+
+  const text = await res.text()
+  let data
+  try { data = JSON.parse(text) } catch { data = { error: text } }
+
+  if (!res.ok || data.error) {
+    throw new Error(data.error_description || data.error || 'Échec d\'obtention du token MVola')
+  }
+
+  const token = data.access_token
+  const expiresIn = Number(data.expires_in || 3600)
+  accessTokenCache = { token, expiresAt: Date.now() + (expiresIn - 60) * 1000 }
+  return token
 }
 
-async function mvolaRequest(path, method, body) {
+async function mvolaRequest(path, method, body, token) {
   const res = await fetch(`${MVOLA_BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Basic ${basicAuth()}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(body),
   })
@@ -42,18 +73,21 @@ export async function requestMvolaPayment(req, res) {
   })
 
   const ref = donation.providerRef
-  const payload = {
-    amount: Number(amount),
-    currency: 'MGA',
-    description: description || 'Don REKOMA',
-    from: { partyIdType: 'MSISDN', partyId: String(phone).replace(/\D/g, '') },
-    to: { partyIdType: 'MSISDN', partyId: MVOLA_DEFAULT_RECEIVER.replace(/\D/g, '') },
-    transactionReference: ref,
-    requestDate: new Date().toISOString(),
-  }
+  const requestDate = new Date().toISOString()
 
   try {
-    const result = await mvolaRequest('/mvpg-cons/consumer/v1.0/transfer/amount', 'POST', payload)
+    const token = await getAccessToken()
+    const payload = {
+      amount: Number(amount),
+      currency: 'MGA',
+      description: description || 'Don REKOMA',
+      from: { partyIdType: 'MSISDN', partyId: String(phone).replace(/\D/g, '') },
+      to: { partyIdType: 'MSISDN', partyId: MVOLA_DEFAULT_RECEIVER.replace(/\D/g, '') },
+      transactionReference: ref,
+      requestDate,
+    }
+
+    const result = await mvolaRequest('/mvola/mm/transactions/type/merchantpay/1.0.0', 'POST', payload, token)
     if (result.status >= 400) {
       await prisma.donation.update({ where: { id: donation.id }, data: { status: 'refused', providerRef: ref } })
       return res.status(400).json({ success: false, error: 'MVola a rejeté la demande', details: result.data })

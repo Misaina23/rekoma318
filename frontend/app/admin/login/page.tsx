@@ -25,13 +25,18 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
+      const emailVal = email.trim()
+      if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+        toast('Format email invalide', 'error')
+        return
+      }
       const r = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: emailVal, password }),
       })
-      if (!r.ok) { toast(t.admin.invalid, 'error'); return }
-      // Demo 2FA step (verification endpoint is stubbed server-side).
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) { toast(data.message || t.admin.invalid, 'error'); return }
       setStep('twofa')
     } catch {
       toast(t.admin.invalid, 'error')

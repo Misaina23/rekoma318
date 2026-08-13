@@ -8,20 +8,21 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  password     String
-  role         String   @default("viewer")
-  permissions  Json?
-  active       Boolean  @default(true)
-  lastLoginAt  DateTime? @db.Timestamptz(6)
-  memberId     String?  @unique
-  member       Member?  @relation(fields: [memberId], references: [id])
-  name         String?
-  createdAt    DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
-  refreshTokens RefreshToken[]
+  id              String           @id @default(cuid())
+  email           String           @unique
+  emailVerified   Boolean          @default(false)
+  password        String
+  role            String           @default("viewer")
+  name            String?
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  active          Boolean          @default(true)
+  lastLoginAt     DateTime?        @db.Timestamptz(6)
+  memberId        String?          @unique
+  permissions     Json?
+  refreshTokens   RefreshToken[]
   twoFactorTokens TwoFactorToken[]
+  member          Member?          @relation(fields: [memberId], references: [id])
 }
 
 model Producteur {
@@ -44,151 +45,163 @@ model RefreshToken {
 }
 
 model Message {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  email     String   @db.VarChar(200)
+  email     String
   phone     String?
   subject   String?
   body      String
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  read      Boolean  @default(false)
-  archived  Boolean  @default(false)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  read      Boolean   @default(false)
+  archived  Boolean   @default(false)
   deletedAt DateTime? @db.Timestamptz(6)
   replies   Reply[]
+
+  @@index([email])
 }
 
 model Reply {
   id        String   @id @default(cuid())
-  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   messageId String
   from      String
   body      String
   at        DateTime @default(now()) @db.Timestamptz(6)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
 }
 
 model News {
-  id        String   @id @default(cuid())
-  date      DateTime @default(now())
+  id        String    @id @default(cuid())
+  date      DateTime  @default(now())
   titleFr   String
   excerptFr String
   tagFr     String
   image     String?
-  published Boolean  @default(true)
+  published Boolean   @default(true)
   deletedAt DateTime? @db.Timestamptz(6)
 }
 
 model Document {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   title       String
   description String?
   fileUrl     String?
   imageUrl    String?
   category    String?
-  date        DateTime @default(now())
-  published   Boolean  @default(true)
+  date        DateTime  @default(now())
+  published   Boolean   @default(true)
   deletedAt   DateTime? @db.Timestamptz(6)
 }
 
 model GalleryEvent {
-  id    String        @id @default(cuid())
-  title String
-  date  DateTime      @default(now())
-  deletedAt DateTime? @db.Timestamptz(6)
-  photos GalleryPhoto[]
+  id        String         @id @default(cuid())
+  title     String
+  date      DateTime       @default(now())
+  deletedAt DateTime?      @db.Timestamptz(6)
+  photos    GalleryPhoto[]
 }
 
 model GalleryPhoto {
-  id     String       @id @default(cuid())
-  url    String
-  event  GalleryEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id      String       @id @default(cuid())
+  url     String
   eventId String
+  event   GalleryEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
 
 model Activity {
-  id          String   @id @default(cuid())
-  title       String
-  responsible String?
-  date        DateTime @default(now())
-  budget      Int      @default(0)
-  objectives  String?
-  participants Int     @default(0)
-  results     String?
-  photos      String[]
-  documents   String[]
-  status      String   @default("planned")
-  deletedAt   DateTime? @db.Timestamptz(6)
+  id           String    @id @default(cuid())
+  title        String
+  responsible  String?
+  date         DateTime  @default(now())
+  budget       Int       @default(0)
+  objectives   String?
+  participants Int       @default(0)
+  results      String?
+  photos       String[]
+  documents    String[]
+  status       String    @default("planned")
+  deletedAt    DateTime? @db.Timestamptz(6)
 }
 
 model Formation {
-  id          String        @id @default(cuid())
-  title       String
-  session     String?
-  date        DateTime      @default(now())
-  participants Int          @default(0)
-  attendees   Int           @default(0)
-  evaluation  Float         @default(0)
-  certificate Boolean       @default(false)
-  status      String        @default("planned")
-  deletedAt   DateTime? @db.Timestamptz(6)
+  id            String        @id @default(cuid())
+  title         String
+  session       String?
+  date          DateTime      @default(now())
+  participants  Int           @default(0)
+  attendees     Int           @default(0)
+  evaluation    Float         @default(0)
+  certificate   Boolean       @default(false)
+  status        String        @default("planned")
+  deletedAt     DateTime?     @db.Timestamptz(6)
   beneficiaries Beneficiary[]
 }
 
 model Member {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   firstName    String
   lastName     String
-  sex          String   @default("M")
+  sex          String    @default("M")
   role         String?
   designation  String?
   description  String?
   address      String?
   phone        String?
   email        String?
-  status       String   @default("active")
-  displayOrder Int      @default(999)
-  joinedAt     DateTime @default(now())
+  status       String    @default("active")
+  displayOrder Int       @default(999)
+  joinedAt     DateTime  @default(now())
   photo        String?
   deletedAt    DateTime? @db.Timestamptz(6)
   user         User?
 }
 
 model Donation {
-  id         String   @id @default(cuid())
-  donor      String
-  email      String
-  phone      String?
-  amount     Int
-  method     String
-  status     String   @default("pending")
+  id          String    @id @default(cuid())
+  donor       String
+  email       String
+  phone       String?
+  amount      Int
+  method      String
+  status      String    @default("pending")
   providerRef String?
-  createdAt  DateTime @default(now()) @db.Timestamptz(6)
-  deletedAt  DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@index([status])
 }
 
 model Beneficiary {
-  id         String     @id @default(cuid())
-  name       String
-  category   String
-  formation  Formation? @relation(fields: [formationId], references: [id])
+  id          String     @id @default(cuid())
+  name        String
+  category    String
   formationId String?
-  contact    String?
-  createdAt  DateTime   @default(now())
+  contact     String?
+  createdAt   DateTime   @default(now())
+  formation   Formation? @relation(fields: [formationId], references: [id])
+
+  @@index([category])
 }
 
 model TwoFactorToken {
   id        String   @id @default(cuid())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   code      String
   expiresAt DateTime
   used      Boolean  @default(false)
   attempts  Int      @default(0)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([userId])
 }
 
 model EmailVerification {
   id        String   @id @default(cuid())
   email     String   @unique
-  token     String   @unique
+  token     String
   expiresAt DateTime
   verified  Boolean  @default(false)
+
+  @@index([token])
 }

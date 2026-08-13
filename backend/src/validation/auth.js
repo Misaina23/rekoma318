@@ -7,9 +7,9 @@ export const loginSchema = Joi.object({
 
 export const registerSchema = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().min(6).required(),
+  password: Joi.string().min(8).required(),
   name: Joi.string().optional(),
-  role: Joi.string().valid('ADMIN', 'USER', 'PRODUCTEUR').optional(),
+  role: Joi.string().valid('super_admin', 'admin', 'manager', 'editor', 'viewer').optional(),
 })
 
 export const forgotPasswordSchema = Joi.object({

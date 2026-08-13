@@ -36,7 +36,22 @@ export function verifyCredentials(email: string, password: string) {
 }
 
 export function getSession(req: NextRequest): Session | null {
-  return decodeSession(req.cookies.get('rekoma_admin')?.value)
+  const cookie = req.cookies.get('rekoma_admin')?.value
+  if (!cookie) return null
+  try {
+    const raw = Buffer.from(cookie, 'base64').toString('utf-8')
+    if (raw.startsWith('{')) {
+      const parsed = JSON.parse(raw)
+      if (parsed.email && parsed.role) return { email: parsed.email, role: parsed.role }
+    }
+    const [email, role, sig] = raw.split('|')
+    if (!email || !role || !sig) return null
+    const expected = sign(`${email}|${role}`)
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
+    return { email, role: role as Role }
+  } catch {
+    return null
+  }
 }
 
 // Stub: in production this would send a real email / generate a TOTP secret.

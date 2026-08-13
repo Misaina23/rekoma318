@@ -37,6 +37,7 @@ export function requirePermission(capability) {
       const user = await prisma.user.findUnique({ where: { id: payload.sub } })
       if (!user) return res.status(404).json({ success: false, error: 'User not found' })
       if (user.active === false) return res.status(403).json({ success: false, error: 'Account disabled' })
+      if (!user.emailVerified) return res.status(403).json({ success: false, error: 'Email non vérifié' })
       req.user = user
       if (!hasPermission(user, capability)) {
         return res.status(403).json({ success: false, error: 'Forbidden: missing permission ' + capability })

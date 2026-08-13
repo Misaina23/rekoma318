@@ -23,7 +23,7 @@ export async function apiFetch(
 }
 
 export async function login(email: string, password: string) {
-  const res = await fetch(`${API_ROOT}/api/admin/login`, {
+  const res = await fetch(`${API_ROOT}/api/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -61,7 +61,7 @@ export function Header() {
                     active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {l.label}
+                  {String(l.label)}
                   {active && (
                     <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary" />
                   )}
