@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis;
 
-// Crée le client Prisma ou réutilise l'existant (évite de multiplier les connexions)
+// Crée le client Prisma ou réutilise l'existant
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') {
