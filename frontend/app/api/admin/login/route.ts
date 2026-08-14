@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: twoFaData.error || 'Échec de l\'envoi du code 2FA' }, { status: twoFa.status })
     }
 
-    const sessionPayload = JSON.stringify({ email: body.email, sessionId: twoFaData.sessionId })
+    const role = data?.user?.role || 'viewer'
+    const sessionPayload = JSON.stringify({ email: body.email, role })
     const adminRes = NextResponse.json({ ok: true, sessionId: twoFaData.sessionId })
     adminRes.cookies.set('rekoma_admin', Buffer.from(sessionPayload).toString('base64'), {
       httpOnly: true,

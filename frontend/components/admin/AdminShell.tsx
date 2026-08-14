@@ -18,9 +18,15 @@ export function AdminShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch('/api/admin/profile')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setProfile({ email: d.email, role: d.role, roleLabel: d.roleLabel }))
-      .catch(() => {})
-  }, [])
+      .then((d) => {
+        if (d?.email && d?.role) {
+          setProfile({ email: d.email, role: d.role, roleLabel: d.roleLabel })
+        } else {
+          router.replace('/admin/login')
+        }
+      })
+      .catch(() => router.replace('/admin/login'))
+  }, [router])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
