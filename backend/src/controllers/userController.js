@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import bcrypt from 'bcrypt'
 import { prisma } from '../lib/prisma.js'
-import { roleCapabilities, resolvePermissions, ROLE_LABELS } from '../lib/permissions.js'
+import { roleCapabilities, resolvePermissions, ROLE_LABELS, hasPermission } from '../lib/permissions.js'
 import { sendEmail, passwordResetEmail } from '../utils/mail.js'
 
 function publicUser(u) {
@@ -16,11 +16,15 @@ function publicUser(u) {
     lastLoginAt: u.lastLoginAt,
     createdAt: u.createdAt,
     memberId: u.memberId || null,
+    roleId: u.roleId || null,
   }
 }
 
 export async function listUsers(req, res) {
-  const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'asc' },
+    include: { roleRef: true },
+  })
   res.json(users.map(publicUser))
 }
 
@@ -33,9 +37,8 @@ export async function listMembersForUser(req, res) {
   res.json(members)
 }
 
-// Create a dashboard user from an existing member (no profile duplication).
 export async function createUser(req, res) {
-  const { memberId, email, password, role } = req.body || {}
+  const { memberId, email, password, role, roleId } = req.body || {}
   if (!memberId) return res.status(400).json({ success: false, error: 'memberId requis' })
   const member = await prisma.member.findUnique({ where: { id: memberId } })
   if (!member) return res.status(404).json({ success: false, error: 'Membre introuvable' })
@@ -48,18 +51,28 @@ export async function createUser(req, res) {
 
   const plain = password || crypto.randomBytes(6).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)
   const hashed = await bcrypt.hash(plain, 12)
+
+  let effectiveRole = 'viewer'
+  if (roleId) {
+    const roleRecord = await prisma.role.findUnique({ where: { id: roleId } })
+    if (roleRecord) effectiveRole = roleRecord.name
+  } else if (role) {
+    effectiveRole = role
+  }
+
   const user = await prisma.user.create({
     data: {
       email: userEmail,
       password: hashed,
       name: `${member.firstName} ${member.lastName}`,
-      role: role || 'viewer',
+      role: effectiveRole,
+      roleId: roleId || null,
       active: true,
       memberId,
     },
+    include: { roleRef: true },
   })
 
-  // send credentials email
   await sendEmail({
     to: userEmail,
     subject: 'Vos accès au tableau de bord REKOMA',
@@ -72,12 +85,18 @@ export async function createUser(req, res) {
 
 export async function updateUser(req, res) {
   const { id } = req.params
-  const { role, permissions, active } = req.body || {}
+  const { role, roleId, permissions, active } = req.body || {}
   const data = {}
-  if (role) data.role = role
-  if (permissions !== undefined) data.permissions = permissions // array or {add,remove}
+  if (roleId) data.roleId = roleId
+  if (role && !roleId) data.role = role
+  if (permissions !== undefined) data.permissions = permissions
   if (active !== undefined) data.active = Boolean(active)
-  const user = await prisma.user.update({ where: { id }, data })
+
+  const user = await prisma.user.update({
+    where: { id },
+    data,
+    include: { roleRef: true },
+  })
   res.json({ success: true, user: publicUser(user) })
 }
 
@@ -99,4 +118,4 @@ export async function deleteUser(req, res) {
   res.json({ success: true })
 }
 
-export { roleCapabilities }
+export { roleCapabilities, hasPermission }

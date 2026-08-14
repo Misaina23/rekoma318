@@ -213,7 +213,7 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
 
   async function submit() {
     setSaving(true)
-    const method = member ? 'PATCH' : 'POST'
+    const method = member ? 'PUT' : 'POST'
     const url = member ? `/api/admin/members/${member.id}` : '/api/admin/members'
     const r = await fetch(url, {
       method,
@@ -301,18 +301,19 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
 function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose: () => void; onSaved: () => void }) {
   const { t } = useI18n()
   const toast = useToast()
-  const ROLES: { value: string; label: string }[] = [
-    { value: 'viewer', label: 'Observateur' },
-    { value: 'editor', label: 'Éditeur' },
-    { value: 'manager', label: 'Gestionnaire' },
-    { value: 'admin', label: 'Administrateur' },
-    { value: 'super_admin', label: 'Super Administrateur' },
-  ]
-  const [role, setRole] = useState('viewer')
+  const [roles, setRoles] = useState<{ id: string; name: string; label: string }[]>([])
+  const [roleId, setRoleId] = useState('')
   const [email, setEmail] = useState(member.email || '')
   const [password, setPassword] = useState('')
   const [saving, setSaving] = useState(false)
   const [tempPwd, setTempPwd] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/roles/roles')
+      .then(r => r.ok ? r.json() : [])
+      .then(setRoles)
+      .catch(() => {})
+  }, [])
 
   async function submit() {
     setSaving(true)
@@ -320,7 +321,7 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
       const r = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ memberId: member.id, email, password: password || undefined, role }),
+        body: JSON.stringify({ memberId: member.id, email, password: password || undefined, roleId }),
       })
       const d = await r.json().catch(() => ({}))
       if (r.ok) {
@@ -350,8 +351,9 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
           </div>
           <div className="space-y-1.5">
             <Label>Rôle</Label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
-              {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            <select value={roleId} onChange={(e) => setRoleId(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+              <option value="">Sélectionner un rôle</option>
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">

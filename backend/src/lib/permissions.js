@@ -1,54 +1,7 @@
 // RBAC: maps dashboard roles to granular capabilities and resolves effective
 // permissions for a user (role defaults + optional per-user overrides).
 
-export const ROLE_PERMISSIONS = {
-  super_admin: '*', // wildcard = all permissions
-  admin: [
-    'view_dashboard',
-    'manage_members',
-    'manage_activities',
-    'manage_formations',
-    'manage_donations',
-    'manage_news',
-    'manage_gallery',
-    'manage_documents',
-    'manage_messages',
-    'view_analytics',
-    'manage_settings',
-  ],
-  manager: [
-    'view_dashboard',
-    'manage_members',
-    'manage_activities',
-    'manage_formations',
-    'manage_donations',
-    'manage_news',
-    'manage_gallery',
-    'manage_documents',
-    'manage_messages',
-    'view_analytics',
-  ],
-  editor: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_documents'],
-  formation_lead: ['view_dashboard', 'manage_formations', 'view_analytics'],
-  finance_lead: ['view_dashboard', 'manage_donations', 'view_analytics', 'manage_settings'],
-  communication_lead: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_messages'],
-  viewer: ['view_dashboard'],
-}
-
-export const ALL_CAPABILITIES = [
-  'view_dashboard',
-  'manage_members',
-  'manage_activities',
-  'manage_formations',
-  'manage_donations',
-  'manage_news',
-  'manage_gallery',
-  'manage_documents',
-  'manage_messages',
-  'view_analytics',
-  'manage_settings',
-  'manage_roles',
-]
+import { prisma } from '../lib/prisma.js'
 
 export const ROLE_LABELS = {
   super_admin: 'Super Administrateur',
@@ -61,32 +14,77 @@ export const ROLE_LABELS = {
   viewer: 'Observateur',
 }
 
-export function roleCapabilities(role) {
-  const caps = ROLE_PERMISSIONS[role]
-  if (caps === '*') return [...ALL_CAPABILITIES]
-  return caps ? [...caps] : []
+export const ALL_CAPABILITIES = [
+  'view_dashboard',
+  'members.view',
+  'members.create',
+  'members.edit',
+  'members.delete',
+  'manage_members',
+  'manage_activities',
+  'manage_formations',
+  'manage_donations',
+  'manage_news',
+  'manage_gallery',
+  'manage_documents',
+  'manage_messages',
+  'messages.reply',
+  'manage_beneficiaries',
+  'view_analytics',
+  'manage_settings',
+  'manage_roles',
+]
+
+let permissionCache = null
+
+export async function loadPermissions() {
+  if (permissionCache) return permissionCache
+
+  const [roles, perms, rolePerms] = await Promise.all([
+    prisma.role.findMany({ include: { permissions: { include: { permission: true } } } }),
+    prisma.permission.findMany(),
+    prisma.rolePermission.findMany({ include: { permission: true } }),
+  ])
+
+  const permMap = new Map(perms.map(p => [p.key, p]))
+  const roleMap = new Map()
+  for (const role of roles) {
+    const keys = rolePerms
+      .filter(rp => rp.roleId === role.id)
+      .map(rp => rp.permission.key)
+    roleMap.set(role.name, { ...role, permissionKeys: keys })
+  }
+
+  permissionCache = { roles, perms: permMap, roleMap }
+  return permissionCache
 }
 
-// Resolve effective permissions: role defaults, then apply per-user overrides.
-export function resolvePermissions(user) {
+export async function roleCapabilities(roleName) {
+  const cache = await loadPermissions()
+  const role = cache.roleMap.get(roleName)
+  if (!role) return []
+  if (role.permissionKeys.includes('*')) return [...ALL_CAPABILITIES]
+  return role.permissionKeys.filter(c => ALL_CAPABILITIES.includes(c))
+}
+
+export async function resolvePermissions(user) {
   if (!user) return []
-  const base = roleCapabilities(user.role)
-  const overrides = user.permissions
-  if (Array.isArray(overrides)) {
-    // explicit list replaces role defaults (custom permission set)
-    return overrides.filter((c) => ALL_CAPABILITIES.includes(c))
-  }
-  if (overrides && typeof overrides === 'object') {
+  const base = await roleCapabilities(user.role)
+  if (user.permissions && typeof user.permissions === 'object') {
     const merged = new Set(base)
-    if (Array.isArray(overrides.add)) overrides.add.forEach((c) => merged.add(c))
-    if (Array.isArray(overrides.remove)) overrides.remove.forEach((c) => merged.delete(c))
-    return [...merged].filter((c) => ALL_CAPABILITIES.includes(c))
+    if (Array.isArray(user.permissions.add)) user.permissions.add.forEach(c => merged.add(c))
+    if (Array.isArray(user.permissions.remove)) user.permissions.remove.forEach(c => merged.delete(c))
+    return [...merged].filter(c => ALL_CAPABILITIES.includes(c))
   }
   return base
 }
 
-export function hasPermission(user, capability) {
+export async function hasPermission(user, capability) {
   if (!user) return false
-  const caps = resolvePermissions(user)
+  const caps = await resolvePermissions(user)
   return caps.includes('*') || caps.includes(capability)
+}
+
+export async function clearPermissionCache() {
+  permissionCache = null
 }

@@ -10,11 +10,11 @@ export type Role =
 
 export type Capability =
   | 'view_dashboard'
+  | 'members.view'
+  | 'members.create'
+  | 'members.edit'
+  | 'members.delete'
   | 'manage_members'
-  | 'members_view'
-  | 'members_create'
-  | 'members_edit'
-  | 'members_delete'
   | 'manage_activities'
   | 'manage_formations'
   | 'manage_donations'
@@ -22,7 +22,7 @@ export type Capability =
   | 'manage_gallery'
   | 'manage_documents'
   | 'manage_messages'
-  | 'messages_reply'
+  | 'messages.reply'
   | 'manage_beneficiaries'
   | 'view_analytics'
   | 'manage_settings'
@@ -41,11 +41,11 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 const FULL: Capability[] = [
   'view_dashboard',
+  'members.view',
+  'members.create',
+  'members.edit',
+  'members.delete',
   'manage_members',
-  'members_view',
-  'members_create',
-  'members_edit',
-  'members_delete',
   'manage_activities',
   'manage_formations',
   'manage_donations',
@@ -53,7 +53,7 @@ const FULL: Capability[] = [
   'manage_gallery',
   'manage_documents',
   'manage_messages',
-  'messages_reply',
+  'messages.reply',
   'manage_beneficiaries',
   'view_analytics',
   'manage_settings',
@@ -67,11 +67,11 @@ export const ROLE_PERMISSIONS: Record<Role, Capability[]> = {
   admin: FULL.filter((c) => c !== 'manage_roles'),
   manager: [
     'view_dashboard',
+    'members.view',
+    'members.create',
+    'members.edit',
+    'members.delete',
     'manage_members',
-    'members_view',
-    'members_create',
-    'members_edit',
-    'members_delete',
     'manage_activities',
     'manage_formations',
     'manage_donations',
@@ -79,15 +79,15 @@ export const ROLE_PERMISSIONS: Record<Role, Capability[]> = {
     'manage_gallery',
     'manage_documents',
     'manage_messages',
-    'messages_reply',
+    'messages.reply',
     'manage_beneficiaries',
     'view_analytics',
   ],
   editor: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_documents'],
   formation_lead: ['view_dashboard', 'manage_formations', 'view_analytics'],
   finance_lead: ['view_dashboard', 'manage_donations', 'view_analytics', 'manage_settings'],
-  communication_lead: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_messages', 'messages_reply'],
-  viewer: ['view_dashboard'],
+  communication_lead: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_messages', 'messages.reply'],
+  viewer: ['view_dashboard', 'members.view'],
 }
 
 // Resolve effective permissions: role defaults, then per-user overrides.

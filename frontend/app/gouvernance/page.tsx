@@ -1,101 +1,88 @@
-import { Crown, UserRound } from 'lucide-react'
-import { fr } from '@/lib/i18n'
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useI18n } from '@/components/providers/I18nProvider'
 import { PageHero } from '@/components/sections/PageHero'
 import { SectionHeading } from '@/components/sections/SectionHeading'
 import { Reveal, Stagger, StaggerItem } from '@/components/motion/Reveal'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { remoteMembers } from '@/lib/server/remote'
+import { Users, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-export const dynamic = 'force-dynamic'
-
-function initials(name: string) {
-  return name
-    .replace(/^(M\.|Mme|Mr\.)\s*/i, '')
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
+type Member = {
+  id: string
+  firstName: string
+  lastName: string
+  sex: 'M' | 'F'
+  role: string | null
+  designation: string | null
+  description: string | null
+  photo: string | null
+  displayOrder: number
 }
 
-export default async function GovernancePage() {
-  const g = fr.governance
-  const members = await remoteMembers.public().catch(() => [])
+export default function GovernancePage() {
+  const { t } = useI18n()
+  const [members, setMembers] = useState<Member[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/members/public')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { setMembers(data); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const sorted = useMemo(() => {
+    return [...members].sort((a, b) => a.displayOrder - b.displayOrder || a.lastName.localeCompare(b.lastName))
+  }, [members])
 
   return (
     <>
-      <PageHero eyebrow={g.title} title={g.title} description={g.lead} />
+      <PageHero eyebrow="REKOMA" title={t.nav.governance || 'Gouvernance'} description={t.governance?.lead || 'Découvrez les membres de notre organisation.'} />
 
       <section className="section-pad">
-        <div className="container max-w-md">
-          <Reveal>
-            <Card className="overflow-hidden border-0 bg-gradient-to-br from-primary to-accent text-primary-foreground">
-              <CardContent className="p-8 text-center">
-                <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-background/20">
-                  <Crown className="h-7 w-7" />
-                </span>
-                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] opacity-90">
-                  {g.founder.role}
-                </p>
-                <h3 className="mt-1 text-xl font-bold">{g.founder.name}</h3>
-              </CardContent>
-            </Card>
-          </Reveal>
-        </div>
-      </section>
-
-      <section className="section-pad bg-secondary/40">
         <div className="container">
-          <Reveal className="mx-auto max-w-2xl text-center">
-            <SectionHeading align="center" eyebrow={g.bureauTitle} title={g.bureauTitle} />
-          </Reveal>
-          {members.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="p-6 text-center text-sm text-muted-foreground">Aucun membre actif pour le moment.</CardContent>
-            </Card>
+          <SectionHeading align="center" eyebrow={t.governance?.title || 'Gouvernance'} title={t.governance?.title || 'Gouvernance'} description={t.governance?.lead || 'Les personnes qui composent notre gouvernance et assurent notre pilotage stratégique.'} />
+
+          {loading ? (
+            <div className="mt-12 flex justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : sorted.length === 0 ? (
+            <p className="mt-12 text-center text-muted-foreground">Aucun membre à afficher pour le moment.</p>
           ) : (
-            <Stagger className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {members.map((m: any) => (
+            <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {sorted.map((m) => (
                 <StaggerItem key={m.id}>
-                  <Card className="group h-full transition-transform hover:-translate-y-1">
-                    <CardContent className="flex flex-col items-center p-6 text-center">
-                      {m.photo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.photo} alt={`${m.firstName} ${m.lastName}`} className="h-16 w-16 rounded-full object-cover" />
-                      ) : (
-                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                          {initials(`${m.firstName} ${m.lastName}`)}
-                        </span>
-                      )}
-                      <Badge variant="muted" className="mt-4">
-                        {m.designation || m.role || ''}
-                      </Badge>
-                      <h3 className="mt-3 font-semibold">{m.firstName} {m.lastName}</h3>
-                      {m.description && <p className="mt-2 text-xs text-muted-foreground">{m.description}</p>}
+                  <Card className="h-full transition-transform hover:-translate-y-1">
+                    <CardContent className="flex gap-4 p-5">
+                      <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary">
+                        {m.photo ? (
+                          <img src={m.photo} alt={`${m.firstName} ${m.lastName}`} className="h-full w-full rounded-full object-cover" />
+                        ) : (
+                          `${m.firstName[0]}${m.lastName[0]}`
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold">{m.firstName} {m.lastName}</h3>
+                        {(m.designation || m.role) && (
+                          <p className="text-sm text-primary">{m.designation || m.role}</p>
+                        )}
+                        {m.description && (
+                          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{m.description}</p>
+                        )}
+                        <div className="mt-2">
+                          <Badge variant="muted" className="text-xs">{m.sex === 'F' ? 'Femme' : 'Homme'}</Badge>
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 </StaggerItem>
               ))}
             </Stagger>
           )}
-        </div>
-      </section>
-
-      <section className="section-pad">
-        <div className="container max-w-3xl">
-          <Reveal>
-            <Card>
-              <CardContent className="flex gap-4 p-6">
-                <UserRound className="h-5 w-5 shrink-0 text-primary" />
-                <p className="text-sm text-muted-foreground">
-                  REKOMA — Regroupement des Kidabo Opportunistes de Midongy Atsimo. Zone d’intervention :
-                  commune rurale de Midongy Atsimo, district de Midongy du Sud (318), région
-                  Atsimo-Atsinanana, Madagascar.
-                </p>
-              </CardContent>
-            </Card>
-          </Reveal>
         </div>
       </section>
     </>

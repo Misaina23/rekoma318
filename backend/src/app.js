@@ -19,6 +19,7 @@ import verificationRoutes from './routes/verification.js'
 import usersRoutes from './routes/users.js'
 import mvolaRoutes from './routes/mvola.js'
 import stripeRoutes from './routes/stripe.js'
+import rolesRoutes from './routes/roles.js'
 
 dotenv.config()
 
@@ -48,6 +49,7 @@ app.use('/api/verification', verificationRoutes)
 app.use('/api/users', usersRoutes)
 app.use('/api/mvola', mvolaRoutes)
 app.use('/api/stripe', stripeRoutes)
+app.use('/api/roles', rolesRoutes)
 
 // 404
 app.use((req, res, next) => next(createError(404)))

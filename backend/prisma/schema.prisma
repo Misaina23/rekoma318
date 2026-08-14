@@ -23,8 +23,11 @@ model User {
   twoFactorEnabled Boolean        @default(false)
   refreshTokens   RefreshToken[]
   twoFactorTokens TwoFactorToken[]
-  member          Member?          @relation(fields: [memberId], references: [id])
   passwordResets  PasswordReset[]
+  member          Member?          @relation(fields: [memberId], references: [id])
+  userPermissions UserPermission[]
+  roleRef         Role?            @relation(fields: [roleId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  roleId          String?
 }
 
 model Producteur {
@@ -225,4 +228,58 @@ model PasswordReset {
 
   @@index([tokenHash])
   @@index([userId])
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  label       String
+  description String?
+  isSystem    Boolean  @default(false)
+  permissions RolePermission[]
+  users       User[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  category    String
+  description String?
+  roles       RolePermission[]
+  userOverrides UserPermission[]
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([key])
+  @@index([category])
+}
+
+model RolePermission {
+  id           String    @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model UserPermission {
+  id           String    @id @default(cuid())
+  userId       String
+  permissionId String
+  mode         String   @default("add") // add | remove
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId, mode])
+  @@index([userId])
+  @@index([permissionId])
 }
