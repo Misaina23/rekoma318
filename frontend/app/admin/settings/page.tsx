@@ -33,7 +33,12 @@ export default function SettingsPage() {
       <Card>
         <CardHeader><CardTitle className="text-base">Authentification</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <button onClick={() => call('/api/admin/2fa', {}, '2FA activé (démo)')} className={cn(buttonVariants({ variant: 'outline' }))}>
+          <button onClick={async () => {
+            const r = await fetch('/api/admin/2fa/toggle', { method: 'POST' })
+            const d = await r.json().catch(() => ({}))
+            if (r.ok) toast(`2FA ${d.twoFactorEnabled ? 'activé' : 'désactivé'}`, 'success')
+            else toast(d.error || 'Erreur', 'error')
+          }} className={cn(buttonVariants({ variant: 'outline' }))}>
             <KeyRound className="h-4 w-4" /> Activer 2FA
           </button>
           <button onClick={() => call('/api/admin/verify', { code: '123456' }, 'Email vérifié (démo)')} className={cn(buttonVariants({ variant: 'outline' }))}>

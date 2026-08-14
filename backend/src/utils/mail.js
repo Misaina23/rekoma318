@@ -22,6 +22,9 @@ function getTransporter() {
     port,
     secure,
     auth: { user, pass },
+    tls: {
+      ciphers: 'SSLv3',
+    },
   })
 
   return transporter
@@ -34,10 +37,10 @@ export async function verifySMTP() {
   if (!t) return { success: false, error: 'SMTP configuration missing' }
   try {
     const result = await t.verify()
-    console.log('[mail] SMTP verified:', result)
+    console.log('[mail] SMTP connection verified successfully')
     return { success: true, data: result }
   } catch (err) {
-    console.error('[mail] SMTP verification failed:', err.message)
+    console.error('[mail] SMTP connection failed:', err.message)
     return { success: false, error: err.message }
   }
 }
@@ -45,7 +48,9 @@ export async function verifySMTP() {
 export async function sendEmail({ to, subject, html, text }) {
   const t = getTransporter()
   if (!t) {
-    return { success: false, skipped: true, error: 'SMTP not configured' }
+    const error = 'SMTP not configured'
+    console.error('[mail] send failed:', error)
+    throw new Error(error)
   }
 
   try {
@@ -69,7 +74,7 @@ export async function sendEmail({ to, subject, html, text }) {
       to: Array.isArray(to) ? to : [to],
       subject,
     })
-    return { success: false, error: err.message }
+    throw err
   }
 }
 
@@ -113,8 +118,8 @@ export function twoFactorEmail(email, code) {
   return sendEmail({
     to: email,
     subject: 'Votre code de vérification REKOMA',
-    html: `<p>Votre code de vérification à 2 facteurs est : <strong>${code}</strong></p><p>Il expire dans 10 minutes.</p>`,
-    text: `Votre code de vérification REKOMA : ${code} (expire dans 10 minutes).`,
+    html: `<p>Votre code de vérification est :</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px;text-align:center;margin:16px 0;">${code}</p><p>Ce code expire dans 10 minutes.</p><p>Ne partagez jamais ce code.</p>`,
+    text: `Votre code de vérification REKOMA : ${code}\nCe code expire dans 10 minutes.\nNe partagez jamais ce code.`,
   })
 }
 
@@ -126,3 +131,4 @@ export function donationReceiptEmail({ name, email, amount, method }) {
     text: `Merci pour votre don de ${amount} Ar (${method}).`,
   })
 }
+

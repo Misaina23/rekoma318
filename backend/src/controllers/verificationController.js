@@ -48,7 +48,12 @@ export async function request2FA(req, res) {
     },
   })
 
-  await twoFactorEmail(normalizedEmail, code)
+  try {
+    await twoFactorEmail(normalizedEmail, code)
+  } catch (err) {
+    console.error('[2fa] email send failed:', err.message)
+    return res.status(500).json({ success: false, error: 'Échec de l\'envoi du code 2FA. Veuillez réessayer plus tard.' })
+  }
 
   res.json({ success: true, sessionId, message: 'Code envoyé par email' })
 }
@@ -89,7 +94,12 @@ export async function resend2FA(req, res) {
     },
   })
 
-  await twoFactorEmail(user.email, newCode)
+  try {
+    await twoFactorEmail(user.email, newCode)
+  } catch (err) {
+    console.error('[2fa] resend email failed:', err.message)
+    return res.status(500).json({ success: false, error: 'Échec du renvoi du code. Veuillez réessayer plus tard.' })
+  }
 
   res.json({ success: true, sessionId: newSessionId, message: 'Code renvoyé' })
 }
@@ -188,4 +198,17 @@ export async function confirmEmailVerification(req, res) {
     prisma.user.update({ where: { email: record.email }, data: { emailVerified: true } }),
   ])
   res.json({ success: true, verified: true })
+}
+
+export async function toggleTwoFactor(req, res) {
+  if (!req.user?.id) return res.status(401).json({ success: false, error: 'Unauthorized' })
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+  if (!user) return res.status(404).json({ success: false, error: 'User not found' })
+
+  const updated = await prisma.user.update({
+    where: { id: user.id },
+    data: { twoFactorEnabled: !user.twoFactorEnabled },
+  })
+
+  res.json({ success: true, twoFactorEnabled: updated.twoFactorEnabled })
 }
