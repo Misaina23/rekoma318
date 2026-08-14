@@ -35,17 +35,28 @@ export default function AdminLoginPage() {
       }
       const data = await login(emailVal, password)
       if (data?.requiresTwoFactor) {
-        const twoFaData = await request2FA(emailVal, password)
-        if (twoFaData?.sessionId) {
-          setSessionId(twoFaData.sessionId)
-          setStep('twofa')
-          setResendCooldown(10)
+        try {
+          const twoFaData = await request2FA(emailVal, password)
+          if (twoFaData?.sessionId) {
+            setSessionId(twoFaData.sessionId)
+            setStep('twofa')
+            setResendCooldown(10)
+            toast('Code 2FA envoyé par email', 'success')
+          } else {
+            toast('Réponse 2FA invalide', 'error')
+          }
+        } catch (err: any) {
+          console.error('request2FA failed', err)
+          toast(err.message || "Échec de l'envoi du code 2FA", 'error')
         }
-      } else {
+      } else if (data?.success || data?.user) {
         router.push('/admin')
         router.refresh()
+      } else {
+        toast(data?.error || 'Identifiants invalides', 'error')
       }
     } catch (e: any) {
+      console.error('login failed', e)
       toast(e.message || t.admin.invalid, 'error')
     } finally {
       setLoading(false)
@@ -98,12 +109,12 @@ export default function AdminLoginPage() {
           <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="space-y-1.5">
               <Label htmlFor="email">{t.admin.email}</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@rekoma.mg" />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@rekoma.mg" disabled={loading} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">{t.admin.password}</Label>
               <div className="relative">
-                <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+                <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" disabled={loading} />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
@@ -125,7 +136,7 @@ export default function AdminLoginPage() {
               </div>
             </div>
             <button type="submit" disabled={loading} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
-              <LogIn className="h-4 w-4" /> {t.admin.submit}
+              {loading ? 'Connexion...' : <><LogIn className="h-4 w-4" /> {t.admin.submit}</>}
             </button>
             <div className="text-center">
               <Link href="/admin/forgot" className="text-sm text-primary hover:underline">{t.admin.nav.settings} · Mot de passe oublié</Link>
@@ -139,10 +150,10 @@ export default function AdminLoginPage() {
             <p className="text-xs text-muted-foreground">Veuillez vérifier vos emails</p>
             <div className="space-y-1.5">
               <Label>Code</Label>
-              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" autoFocus />
+              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" autoFocus disabled={loading} />
             </div>
             <button type="submit" disabled={loading} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
-              {t.admin.submit}
+              {loading ? 'Vérification...' : t.admin.submit}
             </button>
             <button type="button" onClick={onResend} disabled={loading || resendCooldown > 0} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-full')}>
               {resendCooldown > 0 ? `Renvoyer le code dans ${resendCooldown}s` : 'Renvoyer le code'}

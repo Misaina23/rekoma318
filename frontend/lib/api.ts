@@ -23,6 +23,7 @@ export async function apiFetch(
 }
 
 export async function login(email: string, password: string) {
+  console.log('📤 Login request:', { email })
   const res = await fetch(`${API_ROOT}/api/auth/login`, {
     method: 'POST',
     headers: {
@@ -37,13 +38,17 @@ export async function login(email: string, password: string) {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
+    console.error('❌ Login failed:', res.status, data)
     throw new Error(data.message || data.error || 'Identifiants invalides')
   }
 
-  return res.json()
+  const data = await res.json()
+  console.log('✅ Login response:', data)
+  return data
 }
 
 export async function request2FA(email: string, password: string) {
+  console.log('📤 Request2FA:', { email })
   return apiFetch('/api/verification/2fa/request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,6 +57,7 @@ export async function request2FA(email: string, password: string) {
 }
 
 export async function verify2FA(sessionId: string, code: string) {
+  console.log('📤 Verify2FA:', { sessionId, code })
   return apiFetch('/api/verification/2fa/verify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -60,6 +66,7 @@ export async function verify2FA(sessionId: string, code: string) {
 }
 
 export async function resend2FA(sessionId: string) {
+  console.log('📤 Resend2FA:', { sessionId })
   return apiFetch('/api/verification/2fa/resend', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
