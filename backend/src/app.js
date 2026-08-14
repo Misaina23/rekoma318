@@ -32,7 +32,14 @@ app.use(express.urlencoded({ extended: true }))
 app.use(morgan('dev'))
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: (origin, cb) => {
+      const allowed = process.env.CORS_ORIGIN
+      if (!origin || origin === 'http://localhost:3000' || origin === allowed) {
+        cb(null, true)
+      } else {
+        cb(new Error('CORS: origin not allowed'))
+      }
+    },
     credentials: true,
   }),
 )
@@ -50,6 +57,9 @@ app.use('/api/users', usersRoutes)
 app.use('/api/mvola', mvolaRoutes)
 app.use('/api/stripe', stripeRoutes)
 app.use('/api/roles', rolesRoutes)
+
+app.get('/api/health', (req, res) => res.json({ ok: true }))
+app.get('/api/cors-debug', (req, res) => res.json({ origin: req.headers.origin || 'no-origin' }))
 
 // 404
 app.use((req, res, next) => next(createError(404)))

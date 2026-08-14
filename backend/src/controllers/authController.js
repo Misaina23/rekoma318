@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { welcomeEmail, passwordResetEmail, emailVerificationEmail } from '../utils/mail.js'
 import { rateLimit } from '../middleware/rateLimiter.js'
+import { emailVerifiedEnabled } from '../middleware/authMiddleware.js'
 
 const prisma = new PrismaClient()
 

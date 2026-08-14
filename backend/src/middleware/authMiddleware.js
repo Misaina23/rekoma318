@@ -14,6 +14,7 @@ try {
   emailVerifiedEnabled = false
 }
 
+export { emailVerifiedEnabled }
 export async function requireAuth(req, res, next) {
   const auth = req.headers.authorization
   let token
