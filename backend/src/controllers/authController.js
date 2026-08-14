@@ -15,12 +15,12 @@ if (!JWT_SECRET) {
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000 // 1 hour
 const MAX_RESET_ATTEMPTS = 3
 
-function createAccessToken(user) {
+export function createAccessToken(user) {
   if (!JWT_SECRET) throw new Error('JWT_SECRET is not configured')
   return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' })
 }
 
-function createRefreshTokenValue() {
+export function createRefreshTokenValue() {
   return crypto.randomUUID?.() ?? crypto.randomBytes(32).toString('hex')
 }
 
