@@ -64,7 +64,6 @@ export async function resend2FA(req, res) {
 
   const token = await prisma.twoFactorToken.findFirst({
     where: { sessionId, used: false, expiresAt: { gt: new Date() } },
-    orderBy: { createdAt: 'desc' },
   })
   if (!token) return res.status(404).json({ success: false, error: 'Session expirée' })
 
@@ -117,13 +116,11 @@ export async function verify2FA(req, res) {
       expiresAt: { gt: new Date() },
       codeHash,
     },
-    orderBy: { createdAt: 'desc' },
   })
 
   if (!token) {
     const wrongToken = await prisma.twoFactorToken.findFirst({
       where: { sessionId, used: false, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
     })
     if (wrongToken) {
       await prisma.twoFactorToken.update({

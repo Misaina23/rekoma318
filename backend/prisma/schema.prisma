@@ -198,7 +198,6 @@ model TwoFactorToken {
   expiresAt DateTime
   used      Boolean  @default(false)
   attempts  Int      @default(0)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
