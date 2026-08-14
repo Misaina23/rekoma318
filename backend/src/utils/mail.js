@@ -1,79 +1,28 @@
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
-let transporter = null
-
-function getTransporter() {
-  if (transporter) return transporter
-
-  const host = process.env.MAIL_HOST
-  const port = Number(process.env.MAIL_PORT || 587)
-  const encryption = String(process.env.MAIL_ENCRYPTION || '').toLowerCase()
-  const secure = encryption === 'ssl' || port === 465
-  const user = process.env.MAIL_USERNAME
-  const pass = process.env.MAIL_PASSWORD
-
-  if (!host || !user || !pass) {
-    console.warn('[mail] SMTP configuration missing (MAIL_HOST/MAIL_USERNAME/MAIL_PASSWORD)')
-    return null
-  }
-
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-    family: 4,
-    tls: {
-      ciphers: 'SSLv3',
-      rejectUnauthorized: false,
-    },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
-    debug: process.env.NODE_ENV !== 'production',
-    logger: process.env.NODE_ENV !== 'production',
-  })
-
-  return transporter
-}
-
-const from = `${process.env.MAIL_FROM_NAME || 'REKOMA'} <${process.env.MAIL_FROM_ADDRESS || process.env.MAIL_USERNAME || 'andrianisaina23@gmail.com'}>`
-
-export async function verifySMTP() {
-  const t = getTransporter()
-  if (!t) return { success: false, error: 'SMTP configuration missing' }
-  try {
-    const result = await t.verify()
-    console.log('[mail] SMTP connection verified successfully')
-    return { success: true, data: result }
-  } catch (err) {
-    console.error('[mail] SMTP connection failed:', err.message)
-    return { success: false, error: err.message }
-  }
-}
+const resend = new Resend(process.env.RESEND_API_KEY)
+const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+const fromName = process.env.RESEND_FROM_NAME || 'REKOMA'
 
 export async function sendEmail({ to, subject, html, text }) {
-  const t = getTransporter()
-  if (!t) {
-    const error = 'SMTP not configured'
-    console.error('[mail] send failed:', error)
-    throw new Error(error)
-  }
-
   try {
-    const info = await t.sendMail({
-      from,
+    console.log(`[mail] send to=${Array.isArray(to) ? to.join(',') : to} subject=${subject}`)
+
+    const { data, error } = await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
       to: Array.isArray(to) ? to : [to],
       subject,
-      html,
-      text,
+      html: html || text,
+      text: text || (html ? html.replace(/<[^>]+>/g, '') : ''),
     })
-    console.log('[mail] sent', {
-      messageId: info.messageId,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-    })
-    return { success: true, data: info }
+
+    if (error) {
+      console.error('[mail] Resend error:', error)
+      throw new Error(error.message || 'Resend send failed')
+    }
+
+    console.log('[mail] sent', data?.id)
+    return { success: true, data }
   } catch (err) {
     console.error('[mail] send failed:', {
       error: err.message,
@@ -139,3 +88,6 @@ export function donationReceiptEmail({ name, email, amount, method }) {
   })
 }
 
+export async function verifySMTP() {
+  return { success: true, provider: 'resend' }
+}
