@@ -1,5 +1,5 @@
 import express from 'express'
-import { postMessage, listMessagesGrouped, updateMessage, deleteMessage, replyMessage, postVisit, notifyAdminLogin } from '../controllers/miscController.js'
+import { postMessage, listMessagesGrouped, updateMessage, deleteMessage, replyMessage, postVisit, notifyAdminLogin, publicStats } from '../controllers/miscController.js'
 import { requirePermission } from '../middleware/authMiddleware.js'
 
 const router = express.Router()
@@ -11,6 +11,7 @@ router.delete('/messages/:id', requirePermission('manage_messages'), deleteMessa
 router.post('/messages/:id/reply', requirePermission('manage_messages'), replyMessage)
 
 router.post('/visits', postVisit)
+router.get('/stats/public', publicStats)
 router.post('/notify-admin-login', notifyAdminLogin)
 
 export default router

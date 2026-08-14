@@ -261,6 +261,10 @@ export const fr = {
       { title: 'Rapports', desc: 'Rapports d’activité et financiers (à venir).', tag: 'PDF' },
     ],
   },
+  actualites: {
+    title: 'Actualités',
+    lead: 'Les dernières nouvelles du projet PDIMA et de REKOMA.',
+  },
   contact: {
     title: 'Contact',
     lead: 'Une question, un partenariat, une candidature ? Écrivez-nous.',
@@ -631,6 +635,10 @@ export const en: typeof fr = {
       { title: 'Minutes — EGA', desc: 'Minutes of the Extraordinary General Assembly of 27 July 2026.', tag: 'PDF' },
       { title: 'Reports', desc: 'Activity and financial reports (coming soon).', tag: 'PDF' },
     ],
+  },
+  actualites: {
+    title: 'News',
+    lead: 'Latest news from the PDIMA project and REKOMA.',
   },
   contact: {
     title: 'Contact',

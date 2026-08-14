@@ -36,7 +36,7 @@ export async function requireAuth(req, res, next) {
   }
 }
 
-export async function requirePermission(capability) {
+export function requirePermission(capability) {
   return async (req, res, next) => {
     const auth = req.headers.authorization
     let token

@@ -83,8 +83,24 @@ export async function replyMessage(req, res) {
 
 // ---------- Visits ----------
 export async function postVisit(req, res) {
-  // Visits are tracked client-side / analytics; keep lightweight counter in DB optional.
   res.json({ success: true })
+}
+
+export async function publicStats(req, res) {
+  const [ben, members, donations, formations] = await Promise.all([
+    prisma.beneficiary.count().catch(() => 0),
+    prisma.member.findMany({ where: { status: 'active' } }).catch(() => []),
+    prisma.donation.findMany({ where: { status: 'validated' } }).catch(() => []),
+    prisma.formation.count().catch(() => 0),
+  ])
+  const activeMembers = Array.isArray(members) ? members.length : 0
+  const validatedDonations = Array.isArray(donations) ? donations.length : 0
+  res.json({
+    beneficiaries: ben,
+    activeMembers,
+    formations,
+    validatedDonations,
+  })
 }
 
 // ---------- Admin login notify (kept for compatibility) ----------
