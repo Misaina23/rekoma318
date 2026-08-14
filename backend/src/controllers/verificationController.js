@@ -52,7 +52,7 @@ export async function request2FA(req, res) {
     await twoFactorEmail(normalizedEmail, code)
   } catch (err) {
     console.error('[2fa] email send failed:', err.message)
-    return res.status(500).json({ success: false, error: 'Échec de l\'envoi du code 2FA. Veuillez réessayer plus tard.' })
+    return res.status(502).json({ success: false, error: 'Échec de l\'envoi du code 2FA. Veuillez réessayer plus tard.' })
   }
 
   res.json({ success: true, sessionId, message: 'Code envoyé par email' })
@@ -97,7 +97,7 @@ export async function resend2FA(req, res) {
     await twoFactorEmail(user.email, newCode)
   } catch (err) {
     console.error('[2fa] resend email failed:', err.message)
-    return res.status(500).json({ success: false, error: 'Échec du renvoi du code. Veuillez réessayer plus tard.' })
+    return res.status(502).json({ success: false, error: 'Échec du renvoi du code. Veuillez réessayer plus tard.' })
   }
 
   res.json({ success: true, sessionId: newSessionId, message: 'Code renvoyé' })

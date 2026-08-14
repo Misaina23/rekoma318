@@ -22,9 +22,16 @@ function getTransporter() {
     port,
     secure,
     auth: { user, pass },
+    family: 4,
     tls: {
       ciphers: 'SSLv3',
+      rejectUnauthorized: false,
     },
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
+    debug: process.env.NODE_ENV !== 'production',
+    logger: process.env.NODE_ENV !== 'production',
   })
 
   return transporter
