@@ -71,6 +71,10 @@ export default function AdminLoginPage() {
       if (data?.verified) {
         const payload = Buffer.from(JSON.stringify({ email: data.user.email, role: data.user.role })).toString('base64')
         document.cookie = `rekoma_admin=${payload}; path=/; max-age=${60 * 60 * 8}`
+        if (typeof window !== 'undefined' && data.accessToken) {
+          document.cookie = `rekoma_access_token=${data.accessToken}; path=/; max-age=${15 * 60}`
+          localStorage.setItem('rekoma_access_token', data.accessToken)
+        }
         router.push('/admin')
         router.refresh()
       }

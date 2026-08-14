@@ -4,13 +4,14 @@
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'
 
-async function call(path: string, init: RequestInit = {}) {
+async function call(path: string, init: RequestInit = {}, authHeader?: string | null) {
   const res = await fetch(`${API}${path}`, {
     ...init,
     credentials: 'include',
     headers: {
       'content-type': 'application/json',
       ...(init.headers || {}),
+      ...(authHeader ? { authorization: authHeader } : {}),
     },
     cache: 'no-store',
   })
@@ -37,90 +38,90 @@ function unwrap<T>(data: any): T {
 
 // ---------- Activities ----------
 export const remoteActivities = {
-  list: () => call('/api/cms/activities').then((d) => unwrap<any[]>(d)),
-  create: (body: any) => call('/api/cms/activities', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  update: (id: string, body: any) => call(`/api/cms/activities/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  remove: (id: string) => call(`/api/cms/activities/${id}`, { method: 'DELETE' }),
+  list: (authHeader?: string | null) => call('/api/cms/activities', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  create: (body: any, authHeader?: string | null) => call('/api/cms/activities', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  remove: (id: string, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Formations ----------
 export const remoteFormations = {
-  list: () => call('/api/cms/formations').then((d) => unwrap<any[]>(d)),
-  create: (body: any) => call('/api/cms/formations', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  update: (id: string, body: any) => call(`/api/cms/formations/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  remove: (id: string) => call(`/api/cms/formations/${id}`, { method: 'DELETE' }),
+  list: (authHeader?: string | null) => call('/api/cms/formations', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  create: (body: any, authHeader?: string | null) => call('/api/cms/formations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  remove: (id: string, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Members ----------
 export const remoteMembers = {
-  list: (q?: string) => call(`/api/members${q ? `?q=${encodeURIComponent(q)}` : ''}`).then((d) => unwrap<any[]>(d)),
-  public: () => call('/api/members/public').then((d) => unwrap<any[]>(d)),
-  create: (body: any) => call('/api/members', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  update: (id: string, body: any) => call(`/api/members/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  remove: (id: string) => call(`/api/members/${id}`, { method: 'DELETE' }),
+  list: (q?: string, authHeader?: string | null) => call(`/api/members${q ? `?q=${encodeURIComponent(q)}` : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d)),
+  public: (authHeader?: string | null) => call('/api/members/public', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  create: (body: any, authHeader?: string | null) => call('/api/members', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/members/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  remove: (id: string, authHeader?: string | null) => call(`/api/members/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Donations ----------
 export const remoteDonations = {
-  list: (status?: string) => call(`/api/donations${status ? `?status=${status}` : ''}`).then((d) => unwrap<{ donations: any[]; totalCollected: number }>(d)),
-  update: (id: string, body: any) => call(`/api/donations/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  remove: (id: string) => call(`/api/donations/${id}`, { method: 'DELETE' }),
+  list: (status?: string, authHeader?: string | null) => call(`/api/donations${status ? `?status=${status}` : ''}`, {}, authHeader).then((d) => unwrap<{ donations: any[]; totalCollected: number }>(d)),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/donations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  remove: (id: string, authHeader?: string | null) => call(`/api/donations/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Messages (grouped threads) ----------
 export const remoteMessages = {
-  listThreads: () => call('/api/messages').then((d) => unwrap<any[]>(d)),
-  update: (id: string, body: any) => call(`/api/messages/${id}`, { method: 'PATCH', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  remove: (id: string) => call(`/api/messages/${id}`, { method: 'DELETE' }),
-  reply: (id: string, from: string, body: string) =>
-    call(`/api/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ from, body }) }).then((d) => unwrap<any>(d)),
+  listThreads: (authHeader?: string | null) => call('/api/messages', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/messages/${id}`, { method: 'PATCH', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  remove: (id: string, authHeader?: string | null) => call(`/api/messages/${id}`, { method: 'DELETE' }, authHeader),
+  reply: (id: string, from: string, body: string, authHeader?: string | null) =>
+    call(`/api/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ from, body }) }, authHeader).then((d) => unwrap<any>(d)),
 }
 
 // ---------- News / Documents / Gallery (CMS public + admin) ----------
 export const remoteCms = {
-  news: (all = false) => call(`/api/cms/news${all ? '?all=1' : ''}`).then((d) => unwrap<any[]>(d)),
-  createNews: (body: any) => call('/api/cms/news', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  updateNews: (id: string, body: any) => call(`/api/cms/news/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  deleteNews: (id: string) => call(`/api/cms/news/${id}`, { method: 'DELETE' }),
+  news: (all = false, authHeader?: string | null) => call(`/api/cms/news${all ? '?all=1' : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d)),
+  createNews: (body: any, authHeader?: string | null) => call('/api/cms/news', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  updateNews: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/news/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  deleteNews: (id: string, authHeader?: string | null) => call(`/api/cms/news/${id}`, { method: 'DELETE' }, authHeader),
 
-  documents: (all = false) => call(`/api/cms/documents${all ? '?all=1' : ''}`).then((d) => unwrap<any[]>(d)),
-  createDocument: (body: any) => call('/api/cms/documents', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  updateDocument: (id: string, body: any) => call(`/api/cms/documents/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  deleteDocument: (id: string) => call(`/api/cms/documents/${id}`, { method: 'DELETE' }),
+  documents: (all = false, authHeader?: string | null) => call(`/api/cms/documents${all ? '?all=1' : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d)),
+  createDocument: (body: any, authHeader?: string | null) => call('/api/cms/documents', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  updateDocument: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/documents/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  deleteDocument: (id: string, authHeader?: string | null) => call(`/api/cms/documents/${id}`, { method: 'DELETE' }, authHeader),
 
-  gallery: () => call('/api/cms/gallery').then((d) => unwrap<any[]>(d)),
-  createGalleryEvent: (body: any) => call('/api/cms/gallery', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  addGalleryPhoto: (id: string, url: string) => call(`/api/cms/gallery/${id}/photos`, { method: 'POST', body: JSON.stringify({ url }) }).then((d) => unwrap<any>(d)),
-  deleteGalleryEvent: (id: string) => call(`/api/cms/gallery/${id}`, { method: 'DELETE' }),
+  gallery: (authHeader?: string | null) => call('/api/cms/gallery', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  createGalleryEvent: (body: any, authHeader?: string | null) => call('/api/cms/gallery', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  addGalleryPhoto: (id: string, url: string, authHeader?: string | null) => call(`/api/cms/gallery/${id}/photos`, { method: 'POST', body: JSON.stringify({ url }) }, authHeader).then((d) => unwrap<any>(d)),
+  deleteGalleryEvent: (id: string, authHeader?: string | null) => call(`/api/cms/gallery/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Beneficiaries ----------
 export const remoteBeneficiaries = {
-  list: (q?: string, category?: string) => {
+  list: (q?: string, category?: string, authHeader?: string | null) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (category) params.set('category', category)
     const qs = params.toString()
-    return call(`/api/beneficiaries${qs ? `?${qs}` : ''}`).then((d) => unwrap<any[]>(d))
+    return call(`/api/beneficiaries${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d))
   },
-  stats: () => call('/api/beneficiaries/stats').then((d) => unwrap<{ total: number; breakdown: Record<string, number> }>(d)),
-  create: (body: any) => call('/api/beneficiaries', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  update: (id: string, body: any) => call(`/api/beneficiaries/${id}`, { method: 'PUT', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  remove: (id: string) => call(`/api/beneficiaries/${id}`, { method: 'DELETE' }),
+  stats: (authHeader?: string | null) => call('/api/beneficiaries/stats', {}, authHeader).then((d) => unwrap<{ total: number; breakdown: Record<string, number> }>(d)),
+  create: (body: any, authHeader?: string | null) => call('/api/beneficiaries', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/beneficiaries/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  remove: (id: string, authHeader?: string | null) => call(`/api/beneficiaries/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Public submissions ----------
 export const remotePublic = {
-  postMessage: (body: any) => call('/api/messages', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  postDonation: (body: any) => call('/api/donations', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  postVisit: () => call('/api/visits', { method: 'POST' }),
+  postMessage: (body: any, authHeader?: string | null) => call('/api/messages', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  postDonation: (body: any, authHeader?: string | null) => call('/api/donations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  postVisit: (authHeader?: string | null) => call('/api/visits', { method: 'POST' }, authHeader),
 }
 
 // ---------- Payments ----------
 export const remotePayments = {
-  mvolaRequest: (body: any) => call('/api/mvola/request', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
-  mvolaStatus: (reference: string) => call(`/api/mvola/status`, { method: 'POST', body: JSON.stringify({ reference }) }).then((d) => unwrap<any>(d)),
-  stripeCheckout: (body: any) => call('/api/stripe/checkout', { method: 'POST', body: JSON.stringify(body) }).then((d) => unwrap<any>(d)),
+  mvolaRequest: (body: any, authHeader?: string | null) => call('/api/mvola/request', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  mvolaStatus: (reference: string, authHeader?: string | null) => call(`/api/mvola/status`, { method: 'POST', body: JSON.stringify({ reference }) }, authHeader).then((d) => unwrap<any>(d)),
+  stripeCheckout: (body: any, authHeader?: string | null) => call('/api/stripe/checkout', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
 }
 
 export { API }

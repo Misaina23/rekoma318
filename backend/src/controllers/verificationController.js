@@ -156,6 +156,8 @@ export async function verify2FA(req, res) {
   res.json({
     success: true,
     verified: true,
+    accessToken,
+    refreshToken: refreshTokenValue,
     user: { id: user.id, email: user.email, role: user.role, name: user.name },
   })
 }

@@ -61,7 +61,7 @@ export async function loadPermissions() {
 
 export async function roleCapabilities(roleName) {
   const cache = await loadPermissions()
-  const role = cache.roleMap.get(roleName)
+  const role = cache.roleMap.get(String(roleName).toLowerCase())
   if (!role) return []
   if (role.permissionKeys.includes('*')) return [...ALL_CAPABILITIES]
   return role.permissionKeys.filter(c => ALL_CAPABILITIES.includes(c))

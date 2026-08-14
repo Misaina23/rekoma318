@@ -92,7 +92,8 @@ export const ROLE_PERMISSIONS: Record<Role, Capability[]> = {
 
 // Resolve effective permissions: role defaults, then per-user overrides.
 export function resolvePermissions(role: Role, overrides?: string[] | { add?: string[]; remove?: string[] } | null): Capability[] {
-  const base = ROLE_PERMISSIONS[role] ?? []
+  const normalizedRole = String(role).toLowerCase() as Role
+  const base = ROLE_PERMISSIONS[normalizedRole] ?? []
   if (Array.isArray(overrides)) return overrides.filter((c) => FULL.includes(c as Capability)) as Capability[]
   if (overrides && typeof overrides === 'object') {
     const set = new Set(base)
@@ -104,7 +105,8 @@ export function resolvePermissions(role: Role, overrides?: string[] | { add?: st
 }
 
 export function can(role: Role, capability: Capability, overrides?: string[] | { add?: string[]; remove?: string[] } | null): boolean {
-  const caps = resolvePermissions(role, overrides)
+  const normalizedRole = String(role).toLowerCase() as Role
+  const caps = resolvePermissions(normalizedRole, overrides)
   return caps.includes(capability)
 }
 

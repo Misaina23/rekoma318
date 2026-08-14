@@ -76,7 +76,7 @@ export function requirePermission(capability) {
 export function requireRole(role) {
   return async (req, res, next) => {
     if (!req.user) return res.status(401).json({ success: false, error: 'Unauthorized' })
-    const allowed = req.user.role === role || req.user.role === 'super_admin'
+    const allowed = String(req.user.role).toLowerCase() === String(role).toLowerCase() || String(req.user.role).toLowerCase() === 'super_admin'
     if (!allowed) return res.status(403).json({ success: false, error: 'Forbidden' })
     next()
   }

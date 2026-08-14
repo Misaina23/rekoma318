@@ -7,8 +7,18 @@ export async function apiFetch(
 ) {
   const url = `${API_ROOT}${path}`
 
+  const token =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('rekoma_access_token') || undefined
+      : undefined
+
   const finalOpts: RequestInit = {
     credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {}),
+    },
     ...opts,
   }
 

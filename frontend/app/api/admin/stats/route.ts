@@ -5,16 +5,18 @@ import { remoteMessages, remoteMembers, remoteActivities, remoteFormations, remo
 export async function GET(req: NextRequest) {
   const session = getSession(req)
   if (!session) return NextResponse.json({ message: 'Non autorisé' }, { status: 401 })
+  const token = req.cookies.get('rekoma_access_token')?.value
+  const authHeader = token ? `Bearer ${token}` : undefined
 
   const day = new Date().toISOString().slice(0, 10)
 
   try {
     const [threads, members, activities, formations, donations] = await Promise.all([
-      remoteMessages.listThreads().catch(() => []),
-      remoteMembers.list().catch(() => []),
-      remoteActivities.list().catch(() => []),
-      remoteFormations.list().catch(() => []),
-      remoteDonations.list().catch(() => ({ donations: [], totalCollected: 0 })),
+      remoteMessages.listThreads(authHeader).catch(() => []),
+      remoteMembers.list(undefined, authHeader).catch(() => []),
+      remoteActivities.list(authHeader).catch(() => []),
+      remoteFormations.list(authHeader).catch(() => []),
+      remoteDonations.list(undefined, authHeader).catch(() => ({ donations: [], totalCollected: 0 })),
     ])
 
     const allMessages = threads.flatMap((t: any) => t.messages || [])

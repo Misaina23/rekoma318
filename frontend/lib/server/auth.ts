@@ -25,7 +25,7 @@ export function decodeSession(cookie?: string): Session | null {
     if (!email || !role || !sig) return null
     const expected = sign(`${email}|${role}`)
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
-    return { email, role: role as Role }
+    return { email, role: String(role).toLowerCase() as Role }
   } catch {
     return null
   }
@@ -42,13 +42,13 @@ export function getSession(req: NextRequest): Session | null {
     const raw = Buffer.from(cookie, 'base64').toString('utf-8')
     if (raw.startsWith('{')) {
       const parsed = JSON.parse(raw)
-      if (parsed.email && parsed.role) return { email: parsed.email, role: parsed.role }
+      if (parsed.email && parsed.role) return { email: parsed.email, role: String(parsed.role).toLowerCase() as Role }
     }
     const [email, role, sig] = raw.split('|')
     if (!email || !role || !sig) return null
     const expected = sign(`${email}|${role}`)
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null
-    return { email, role: role as Role }
+    return { email, role: String(role).toLowerCase() as Role }
   } catch {
     return null
   }
