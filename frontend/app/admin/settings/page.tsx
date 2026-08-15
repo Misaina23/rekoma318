@@ -23,7 +23,15 @@ export default function SettingsPage() {
     const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
     const d = await r.json().catch(() => ({}))
     if (r.ok) { toast(ok, 'success'); if (d.secret) setSecret(d.secret) }
-    else toast(t.admin.save, 'error')
+    else toast(d.error || 'Erreur', 'error')
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
   }
 
   return (
@@ -86,12 +94,17 @@ function RolesManager() {
   const [saving, setSaving] = useState(false)
 
   async function load() {
-    const [rolesR, permsR] = await Promise.all([
-      fetch('/api/admin/roles/roles').then(r => r.ok ? r.json() : []),
-      fetch('/api/admin/roles/permissions').then(r => r.ok ? r.json() : []),
-    ])
-    setRoles(rolesR)
-    setPerms(permsR)
+    try {
+      const [rolesR, permsR] = await Promise.all([
+        fetch('/api/admin/roles/roles').then(r => r.ok ? r.json() : []),
+        fetch('/api/admin/roles/permissions').then(r => r.ok ? r.json() : []),
+      ])
+      setRoles(Array.isArray(rolesR) ? rolesR : [])
+      setPerms(Array.isArray(permsR) ? permsR : [])
+    } catch (e) {
+      setRoles([])
+      setPerms([])
+    }
   }
   useEffect(() => { load() }, [])
 
@@ -226,14 +239,20 @@ function UsersManager() {
   const [caps, setCaps] = useState<Record<string, boolean>>({})
 
   async function load() {
-    const [usersR, rolesR, permsR] = await Promise.all([
-      fetch('/api/admin/users').then(r => r.ok ? r.json() : []),
-      fetch('/api/admin/roles/roles').then(r => r.ok ? r.json() : []),
-      fetch('/api/admin/roles/permissions').then(r => r.ok ? r.json() : []),
-    ])
-    setUsers(usersR)
-    setRoles(rolesR)
-    setPerms(permsR)
+    try {
+      const [usersR, rolesR, permsR] = await Promise.all([
+        fetch('/api/admin/users').then(r => r.ok ? r.json() : []),
+        fetch('/api/admin/roles/roles').then(r => r.ok ? r.json() : []),
+        fetch('/api/admin/roles/permissions').then(r => r.ok ? r.json() : []),
+      ])
+      setUsers(Array.isArray(usersR) ? usersR : [])
+      setRoles(Array.isArray(rolesR) ? rolesR : [])
+      setPerms(Array.isArray(permsR) ? permsR : [])
+    } catch (e) {
+      setUsers([])
+      setRoles([])
+      setPerms([])
+    }
   }
   useEffect(() => { load() }, [])
 

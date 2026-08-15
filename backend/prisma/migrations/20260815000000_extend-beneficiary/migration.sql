@@ -1,0 +1,17 @@
+-- Beneficiary extension: add detailed fields
+
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "firstName" VARCHAR(200) NOT NULL DEFAULT '';
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "lastName" VARCHAR(200) NOT NULL DEFAULT '';
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "cin" VARCHAR(200);
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "birthDate" TIMESTAMPTZ(6);
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "sex" VARCHAR(10) DEFAULT 'M';
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "phone" VARCHAR(50);
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "address" TEXT;
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "commune" VARCHAR(200);
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "status" VARCHAR(50) DEFAULT 'active';
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "attendance" TEXT;
+ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Beneficiary_cin_key" ON "Beneficiary"("cin") WHERE "cin" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "Beneficiary_formationId_idx" ON "Beneficiary"("formationId");
+CREATE INDEX IF NOT EXISTS "Beneficiary_cin_idx" ON "Beneficiary"("cin");

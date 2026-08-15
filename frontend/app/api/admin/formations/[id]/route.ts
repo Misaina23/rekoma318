@@ -27,3 +27,31 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ message: e.message }, { status: e.status || 500 })
   }
 }
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const { res } = requireAuth(req, 'manage_formations')
+  if (res) return res
+  try {
+    const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'}/api/cms/formations/${params.id}/certificates`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({}),
+    })
+    if (r.ok && r.headers.get('content-type')?.includes('application/pdf')) {
+      const buffer = Buffer.from(await r.arrayBuffer())
+      const filename = r.headers.get('content-disposition')?.split('filename=')?.[1]?.replace(/"/g, '') || `attestations-${params.id}.pdf`
+      return new NextResponse(buffer as any, {
+        status: 200,
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': `attachment; filename=${filename}`,
+        },
+      })
+    }
+    const d = await r.json().catch(() => ({}))
+    return NextResponse.json({ message: d.error || 'Erreur' }, { status: r.status || 500 })
+  } catch (e: any) {
+    return NextResponse.json({ message: e.message }, { status: 500 })
+  }
+}

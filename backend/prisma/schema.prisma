@@ -130,7 +130,12 @@ model Activity {
 model Formation {
   id            String        @id @default(cuid())
   title         String
+  description   String?
   session       String?
+  startDate     DateTime?
+  endDate       DateTime?
+  location      String?
+  trainer       String?
   date          DateTime      @default(now())
   participants  Int           @default(0)
   attendees     Int           @default(0)
@@ -177,16 +182,29 @@ model Donation {
 }
 
 model Beneficiary {
-  id          String     @id @default(cuid())
-  name        String
-  category    String
-  formationId String?
-  contact     String?
-  createdAt   DateTime   @default(now())
-  deletedAt   DateTime?  @db.Timestamptz(6)
-  formation   Formation? @relation(fields: [formationId], references: [id])
+  id            String     @id @default(cuid())
+  firstName     String
+  lastName      String
+  cin           String?    @unique
+  birthDate     DateTime?
+  sex           String?    @default("M")
+  phone         String?
+  address       String?
+  commune       String?
+  name          String
+  category      String
+  formationId   String?
+  contact       String?
+  status        String?    @default("active")
+  attendance    String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  deletedAt     DateTime?  @db.Timestamptz(6)
+  formation     Formation? @relation(fields: [formationId], references: [id])
 
   @@index([category])
+  @@index([formationId])
+  @@index([cin])
 }
 
 model TwoFactorToken {

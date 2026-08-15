@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js'
+import PDFDocument from 'pdfkit'
 
 // ---------- News (Actualités) ----------
 export async function listNews(req, res) {
@@ -154,18 +155,48 @@ export async function deleteActivity(req, res) {
 }
 
 // ---------- Formations ----------
+const FORMATION_PAGE_SIZE = 4
+
 export async function listFormations(req, res) {
-  const items = await prisma.formation.findMany({ where: { deletedAt: null }, orderBy: { date: 'desc' } })
-  res.json(items)
+  const { q, status, from, to } = req.query
+  const where: any = { deletedAt: null }
+  if (q) where.OR = [{ title: { contains: String(q), mode: 'insensitive' } }, { session: { contains: String(q), mode: 'insensitive' } }, { location: { contains: String(q), mode: 'insensitive' } }, { trainer: { contains: String(q), mode: 'insensitive' } }]
+  if (status) where.status = status
+  if (from || to) {
+    where.date = {}
+    if (from) where.date.gte = new Date(String(from))
+    if (to) where.date.lte = new Date(String(to))
+  }
+
+  const page = Math.max(1, Number(req.query.page) || 1)
+  const skip = (page - 1) * FORMATION_PAGE_SIZE
+
+  const [items, total] = await Promise.all([
+    prisma.formation.findMany({
+      where,
+      orderBy: { date: 'desc' },
+      skip,
+      take: FORMATION_PAGE_SIZE,
+      include: { beneficiaries: { select: { id: true, firstName: true, lastName: true, cin: true, phone: true, address: true, status: true, attendance: true } } },
+    }),
+    prisma.formation.count({ where }),
+  ])
+
+  res.json({ items, total, page, pageSize: FORMATION_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(total / FORMATION_PAGE_SIZE)) })
 }
 
 export async function createFormation(req, res) {
-  const { title, session, date, participants, attendees, evaluation, certificate, status } = req.body || {}
+  const { title, description, session, startDate, endDate, location, trainer, date, participants, attendees, evaluation, certificate, status } = req.body || {}
   if (!title) return res.status(400).json({ success: false, error: 'Titre requis' })
   const item = await prisma.formation.create({
     data: {
       title: String(title),
+      description: description || null,
       session: session || null,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      location: location || null,
+      trainer: trainer || null,
       date: date ? new Date(date) : undefined,
       participants: Number(participants) || 0,
       attendees: Number(attendees) || 0,
@@ -178,7 +209,22 @@ export async function createFormation(req, res) {
 }
 
 export async function updateFormation(req, res) {
-  const item = await prisma.formation.update({ where: { id: req.params.id }, data: req.body || {} })
+  const { title, description, session, startDate, endDate, location, trainer, date, participants, attendees, evaluation, certificate, status } = req.body || {}
+  const data: any = {}
+  if (title !== undefined) data.title = String(title)
+  if (description !== undefined) data.description = description || null
+  if (session !== undefined) data.session = session || null
+  if (startDate !== undefined) data.startDate = startDate ? new Date(startDate) : null
+  if (endDate !== undefined) data.endDate = endDate ? new Date(endDate) : null
+  if (location !== undefined) data.location = location || null
+  if (trainer !== undefined) data.trainer = trainer || null
+  if (date !== undefined) data.date = date ? new Date(date) : undefined
+  if (participants !== undefined) data.participants = Number(participants) || 0
+  if (attendees !== undefined) data.attendees = Number(attendees) || 0
+  if (evaluation !== undefined) data.evaluation = Number(evaluation) || 0
+  if (certificate !== undefined) data.certificate = Boolean(certificate)
+  if (status !== undefined) data.status = String(status)
+  const item = await prisma.formation.update({ where: { id: req.params.id }, data })
   res.json({ success: true, item })
 }
 
@@ -186,3 +232,67 @@ export async function deleteFormation(req, res) {
   await prisma.formation.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } })
   res.json({ success: true })
 }
+
+export async function generateCertificates(req, res) {
+  const formation = await prisma.formation.findUnique({
+    where: { id: req.params.id },
+    include: { beneficiaries: { where: { deletedAt: null } } },
+  })
+  if (!formation) return res.status(404).json({ success: false, error: 'Formation introuvable' })
+
+  const beneficiaries = formation.beneficiaries || []
+  if (beneficiaries.length === 0) {
+    return res.status(400).json({ success: false, error: 'Aucun bénéficiaire dans cette formation.' })
+  }
+
+  try {
+    const doc = new PDFDocument({ size: 'A4', margin: 60 })
+    const chunks: Buffer[] = []
+    doc.on('data', (chunk) => chunks.push(chunk))
+    doc.on('end', () => {
+      const buffer = Buffer.concat(chunks)
+      res.setHeader('Content-Type', 'application/pdf')
+      res.setHeader('Content-Disposition', `attachment; filename="attestations-${formation.id}.pdf"`)
+      res.send(buffer)
+    })
+
+    const orgName = 'REKOMA'
+    const issuedAt = new Date().toLocaleDateString('fr-FR')
+
+    for (const b of beneficiaries) {
+      doc.addPage()
+      doc.font('Helvetica-Bold').fontSize(22).text(orgName, { align: 'center' })
+      doc.moveDown(0.5)
+      doc.font('Helvetica').fontSize(14).text('Attestation de participation', { align: 'center' })
+      doc.moveDown(1.5)
+
+      doc.font('Helvetica').fontSize(12)
+      doc.text(`Bénéficiaire : ${b.firstName || ''} ${b.lastName || ''}`)
+      if (b.cin) doc.text(`CIN : ${b.cin}`)
+      doc.text(`Formation : ${formation.title}`)
+      if (formation.session) doc.text(`Session : ${formation.session}`)
+      if (formation.startDate || formation.endDate) {
+        const start = formation.startDate ? new Date(formation.startDate).toLocaleDateString('fr-FR') : null
+        const end = formation.endDate ? new Date(formation.endDate).toLocaleDateString('fr-FR') : null
+        doc.text(`Période : ${start ? start : '...'} - ${end ? end : '...'}`)
+      }
+      if (formation.location) doc.text(`Lieu : ${formation.location}`)
+      if (formation.trainer) doc.text(`Formateur : ${formation.trainer}`)
+      doc.moveDown(1)
+      doc.text('Ce document atteste que le bénéficiaire a participé à la formation ci-dessus.')
+      doc.moveDown(1.5)
+      doc.text(`Date d'émission : ${issuedAt}`)
+      doc.moveDown(3)
+      doc.text('Signature :', { continued: false })
+      doc.moveDown(4)
+      doc.text('Cachet :', { continued: false })
+    }
+
+    doc.end()
+  } catch (err) {
+    console.error('generateCertificates failed:', err)
+    res.status(500).json({ success: false, error: 'Erreur lors de la génération du PDF' })
+  }
+}
+
+

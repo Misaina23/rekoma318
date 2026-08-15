@@ -46,9 +46,18 @@ export const remoteActivities = {
 
 // ---------- Formations ----------
 export const remoteFormations = {
-  list: (authHeader?: string | null) => call('/api/cms/formations', {}, authHeader).then((d) => unwrap<any[]>(d)),
-  create: (body: any, authHeader?: string | null) => call('/api/cms/formations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
-  update: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  list: (q?: string, status?: string, from?: string, to?: string, page?: string, authHeader?: string | null) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status) params.set('status', status)
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    if (page) params.set('page', page)
+    const qs = params.toString()
+    return call(`/api/cms/formations${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
+  create: (body: any, authHeader?: string | null) => call('/api/cms/formations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
   remove: (id: string, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'DELETE' }, authHeader),
 }
 
@@ -97,16 +106,21 @@ export const remoteCms = {
 
 // ---------- Beneficiaries ----------
 export const remoteBeneficiaries = {
-  list: (q?: string, category?: string, authHeader?: string | null) => {
+  list: (q?: string, category?: string, formationId?: string, status?: string, sex?: string, commune?: string, page?: string, authHeader?: string | null) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (category) params.set('category', category)
+    if (formationId) params.set('formationId', formationId)
+    if (status) params.set('status', status)
+    if (sex) params.set('sex', sex)
+    if (commune) params.set('commune', commune)
+    if (page) params.set('page', page)
     const qs = params.toString()
-    return call(`/api/beneficiaries${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d))
+    return call(`/api/beneficiaries${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
   },
-  stats: (authHeader?: string | null) => call('/api/beneficiaries/stats', {}, authHeader).then((d) => unwrap<{ total: number; breakdown: Record<string, number> }>(d)),
-  create: (body: any, authHeader?: string | null) => call('/api/beneficiaries', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
-  update: (id: string, body: any, authHeader?: string | null) => call(`/api/beneficiaries/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  stats: (authHeader?: string | null) => call('/api/beneficiaries/stats', {}, authHeader).then((d) => d as any),
+  create: (body: any, authHeader?: string | null) => call('/api/beneficiaries', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/beneficiaries/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
   remove: (id: string, authHeader?: string | null) => call(`/api/beneficiaries/${id}`, { method: 'DELETE' }, authHeader),
 }
 

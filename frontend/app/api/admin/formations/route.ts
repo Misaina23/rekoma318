@@ -7,8 +7,13 @@ export async function GET(req: NextRequest) {
   if (res) return res
   const token = req.cookies.get('rekoma_access_token')?.value
   const authHeader = token ? `Bearer ${token}` : undefined
+  const q = req.nextUrl.searchParams.get('q') || undefined
+  const status = req.nextUrl.searchParams.get('status') || undefined
+  const from = req.nextUrl.searchParams.get('from') || undefined
+  const to = req.nextUrl.searchParams.get('to') || undefined
+  const page = req.nextUrl.searchParams.get('page') || undefined
   try {
-    return NextResponse.json(await remoteFormations.list(authHeader))
+    return NextResponse.json(await remoteFormations.list(q, status, from, to, page, authHeader))
   } catch (e: any) {
     return NextResponse.json({ message: e.message }, { status: e.status || 500 })
   }

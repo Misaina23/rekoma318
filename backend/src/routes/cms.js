@@ -20,6 +20,7 @@ import {
   createFormation,
   updateFormation,
   deleteFormation,
+  generateCertificates,
 } from '../controllers/cmsController.js'
 import { requireAuth, requirePermission } from '../middleware/authMiddleware.js'
 
@@ -54,5 +55,6 @@ router.get('/formations', listFormations)
 router.post('/formations', requirePermission('manage_formations'), createFormation)
 router.put('/formations/:id', requirePermission('manage_formations'), updateFormation)
 router.delete('/formations/:id', requirePermission('manage_formations'), deleteFormation)
+router.post('/formations/:id/certificates', requirePermission('manage_formations'), generateCertificates)
 
 export default router
