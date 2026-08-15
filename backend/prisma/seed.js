@@ -140,10 +140,10 @@ async function main() {
 
   await prisma.beneficiary.createMany({
     data: [
-      { name: 'Rakoto Jean', category: 'Formation', formationId: formation.id, contact: '+261340000001' },
-      { name: 'Rasoamanana Fara', category: 'Distribution', contact: '+261340000002' },
-      { name: 'Randrianasolo Mamy', category: 'Emploi', contact: '+261340000003' },
-      { name: 'Vololona Tina', category: 'Autre', contact: '+261340000004' },
+      { firstName: 'Jean', lastName: 'Rakoto', name: 'Rakoto Jean', category: 'Formation', formationId: formation.id, contact: '+261340000001', sex: 'M', status: 'active' },
+      { firstName: 'Fara', lastName: 'Rasoamanana', name: 'Rasoamanana Fara', category: 'Distribution', contact: '+261340000002', sex: 'F', status: 'active' },
+      { firstName: 'Mamy', lastName: 'Randrianasolo', name: 'Randrianasolo Mamy', category: 'Emploi', contact: '+261340000003', sex: 'M', status: 'active' },
+      { firstName: 'Tina', lastName: 'Vololona', name: 'Vololona Tina', category: 'Autre', contact: '+261340000004', sex: 'F', status: 'active' },
     ],
     skipDuplicates: true,
   })
