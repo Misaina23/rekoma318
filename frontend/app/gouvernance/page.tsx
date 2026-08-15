@@ -30,7 +30,7 @@ export default function GovernancePage() {
   useEffect(() => {
     fetch('/api/members/public')
       .then((r) => r.ok ? r.json() : [])
-      .then((data) => { setMembers(data); setLoading(false) })
+      .then((data) => { setMembers(Array.isArray(data) ? data : []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 

@@ -84,7 +84,7 @@ export default function BeneficiariesPage() {
     setItems((data as any).items || [])
     setTotalPages((data as any).totalPages || 1)
     setStats(st as any)
-    setFormations((fm as any) || [])
+    setFormations((fm as any)?.items || [])
   }, [debouncedQ, category, formationId, status, sex, commune, page])
 
   useEffect(() => {
