@@ -164,7 +164,7 @@ async function main() {
     skipDuplicates: true,
   })
 
-  console.log('Seed complete — super user:', email)
+  console.log('Seed complete — super users:', email1, 'and', email2)
 }
 
 main()
