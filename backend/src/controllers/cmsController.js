@@ -6,7 +6,7 @@ const NEWS_PAGE_SIZE = 4
 
 export async function listNews(req, res) {
   const { q, published, page } = req.query
-  const where: any = { deletedAt: null }
+  const where = { deletedAt: null }
   if (q) where.OR = [
     { titleFr: { contains: String(q), mode: 'insensitive' } },
     { excerptFr: { contains: String(q), mode: 'insensitive' } },
@@ -56,7 +56,7 @@ const DOCUMENTS_PAGE_SIZE = 4
 
 export async function listDocuments(req, res) {
   const { q, category, published, page } = req.query
-  const where: any = { deletedAt: null }
+  const where = { deletedAt: null }
   if (q) where.OR = [
     { title: { contains: String(q), mode: 'insensitive' } },
     { description: { contains: String(q), mode: 'insensitive' } },
@@ -103,7 +103,7 @@ const GALLERY_PAGE_SIZE = 4
 
 export async function listGallery(req, res) {
   const { q, page } = req.query
-  const where: any = { deletedAt: null }
+  const where = { deletedAt: null }
   if (q) where.title = { contains: String(q), mode: 'insensitive' }
   const pageNum = Math.max(1, Number(page) || 1)
   const skip = (pageNum - 1) * GALLERY_PAGE_SIZE
@@ -151,7 +151,7 @@ const ACTIVITIES_PAGE_SIZE = 4
 
 export async function listActivities(req, res) {
   const { q, status, page } = req.query
-  const where: any = { deletedAt: null }
+  const where = { deletedAt: null }
   if (q) where.OR = [
     { title: { contains: String(q), mode: 'insensitive' } },
     { responsible: { contains: String(q), mode: 'insensitive' } },
@@ -203,7 +203,7 @@ const FORMATION_PAGE_SIZE = 4
 
 export async function listFormations(req, res) {
   const { q, status, from, to } = req.query
-  const where: any = { deletedAt: null }
+  const where = { deletedAt: null }
   if (q) where.OR = [{ title: { contains: String(q), mode: 'insensitive' } }, { session: { contains: String(q), mode: 'insensitive' } }, { location: { contains: String(q), mode: 'insensitive' } }, { trainer: { contains: String(q), mode: 'insensitive' } }]
   if (status) where.status = status
   if (from || to) {
@@ -254,7 +254,7 @@ export async function createFormation(req, res) {
 
 export async function updateFormation(req, res) {
   const { title, description, session, startDate, endDate, location, trainer, date, participants, attendees, evaluation, certificate, status } = req.body || {}
-  const data: any = {}
+  const data = {}
   if (title !== undefined) data.title = String(title)
   if (description !== undefined) data.description = description || null
   if (session !== undefined) data.session = session || null
@@ -291,7 +291,7 @@ export async function generateCertificates(req, res) {
 
   try {
     const doc = new PDFDocument({ size: 'A4', margin: 60 })
-    const chunks: Buffer[] = []
+    const chunks = []
     doc.on('data', (chunk) => chunks.push(chunk))
     doc.on('end', () => {
       const buffer = Buffer.concat(chunks)

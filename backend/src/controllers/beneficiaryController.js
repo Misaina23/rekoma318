@@ -4,7 +4,7 @@ const PAGE_SIZE = 4
 
 export async function listBeneficiaries(req, res) {
   const { q, category, formationId, status, sex, commune, page } = req.query
-  const where: any = { deletedAt: null }
+  const where = { deletedAt: null }
 
   if (q) {
     const term = String(q)
@@ -77,7 +77,7 @@ export async function createBeneficiary(req, res) {
   if (!firstName || !lastName) return res.status(400).json({ success: false, error: 'Nom et prénom requis' })
   if (!name) return res.status(400).json({ success: false, error: 'Nom complet requis' })
 
-  const data: any = {
+  const data = {
     firstName: String(firstName),
     lastName: String(lastName),
     name: String(name),
@@ -101,7 +101,7 @@ export async function createBeneficiary(req, res) {
       include: { formation: { select: { id: true, title: true } } },
     })
     res.status(201).json({ success: true, item })
-  } catch (err: any) {
+  } catch (err) {
     if (err?.code === 'P2002') {
       return res.status(409).json({ success: false, error: 'Ce CIN existe déjà.' })
     }
@@ -127,7 +127,7 @@ export async function updateBeneficiary(req, res) {
     attendance,
   } = req.body || {}
 
-  const data: any = {}
+  const data = {}
   if (firstName !== undefined) data.firstName = String(firstName)
   if (lastName !== undefined) data.lastName = String(lastName)
   if (name !== undefined) data.name = String(name)
@@ -146,7 +146,7 @@ export async function updateBeneficiary(req, res) {
   try {
     const item = await prisma.beneficiary.update({ where: { id: req.params.id }, data })
     res.json({ success: true, item })
-  } catch (err: any) {
+  } catch (err) {
     if (err?.code === 'P2002') {
       return res.status(409).json({ success: false, error: 'Ce CIN existe déjà.' })
     }
