@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma.js'
 
 export async function listMembersPublic(req, res) {
   const items = await prisma.member.findMany({
-    where: { status: 'active', deletedAt: null },
+    where: { deletedAt: null },
     orderBy: [{ displayOrder: 'asc' }, { lastName: 'asc' }],
     select: {
       id: true,

@@ -31,10 +31,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { res } = requireAuth(req, 'manage_formations')
   if (res) return res
+  const token = req.cookies.get('rekoma_access_token')?.value
+  const authHeader = token ? `Bearer ${token}` : undefined
   try {
     const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'}/api/cms/formations/${params.id}/certificates`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(authHeader ? { authorization: authHeader } : {}),
+      },
       credentials: 'include',
       body: JSON.stringify({}),
     })

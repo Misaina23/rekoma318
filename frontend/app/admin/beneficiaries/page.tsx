@@ -65,6 +65,8 @@ export default function BeneficiariesPage() {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') || undefined : undefined
+    const authHeader = token ? `Bearer ${token}` : undefined
     const [data, st, fm] = await Promise.all([
       remoteBeneficiaries.list(
         debouncedQ || undefined,
@@ -74,14 +76,15 @@ export default function BeneficiariesPage() {
         sex || undefined,
         commune || undefined,
         String(page),
-      ).catch(() => ({ items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any)),
-      remoteBeneficiaries.stats().catch(() => ({ total: 0, breakdown: {} })),
-      remoteFormations.list().catch(() => []),
+        authHeader,
+      ).catch((e) => { console.error('remoteBeneficiaries.list failed', e); return { items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any }),
+      remoteBeneficiaries.stats(authHeader).catch((e) => { console.error('remoteBeneficiaries.stats failed', e); return { total: 0, breakdown: {} } }),
+      remoteFormations.list(undefined, undefined, undefined, undefined, authHeader).catch((e) => { console.error('remoteFormations.list failed', e); return [] }),
     ])
     setItems((data as any).items || [])
     setTotalPages((data as any).totalPages || 1)
     setStats(st as any)
-    setFormations(fm as any)
+    setFormations((fm as any) || [])
   }, [debouncedQ, category, formationId, status, sex, commune, page])
 
   useEffect(() => {
@@ -307,7 +310,7 @@ function BeneficiaryForm({ beneficiary, formations, onClose, onSaved }: { benefi
     firstName: beneficiary?.firstName || '',
     lastName: beneficiary?.lastName || '',
     cin: beneficiary?.cin || '',
-    birthDate: beneficiary?.birthDate ? new Date(beneficiary.birthDate).toISOString().slice(0, 10) : '',
+    birthDate: beneficiary?.birthDate ? (() => { const d = new Date(beneficiary.birthDate); return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10) })() : '',
     sex: beneficiary?.sex || 'M',
     phone: beneficiary?.phone || '',
     address: beneficiary?.address || '',

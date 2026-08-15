@@ -48,7 +48,9 @@ export default function FormationsPage() {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
-    const data = await remoteFormations.list(debouncedQ || undefined, status || undefined, undefined, undefined, String(page)).catch(() => ({ items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any))
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') || undefined : undefined
+    const authHeader = token ? `Bearer ${token}` : undefined
+    const data = await remoteFormations.list(debouncedQ || undefined, status || undefined, undefined, undefined, String(page), authHeader).catch((e) => { console.error('remoteFormations.list failed', e); return { items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any })
     setItems((data as any).items || [])
     setTotalPages((data as any).totalPages || 1)
   }, [debouncedQ, status, page])
@@ -86,17 +88,27 @@ export default function FormationsPage() {
     if (!confirmed) return
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
       const r = await fetch(`/api/admin/formations/${formation.id}/certificates`, {
         method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
-        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({}),
       })
-      const d = await r.json().catch(() => ({}))
-      if (r.ok && d?.url) {
-        window.open(d.url, '_blank')
+      if (r.ok && r.headers.get('content-type')?.includes('application/pdf')) {
+        const blob = await r.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `attestations-${formation.id}.pdf`
+        a.click()
+        URL.revokeObjectURL(url)
         toast('Attestations générées ✓', 'success')
       } else {
+        const d = await r.json().catch(() => ({}))
         toast(d?.error || 'Erreur lors de la génération', 'error')
       }
     } catch (e: any) {
