@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Search, Plus, Pencil, Trash2, X, Check } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
@@ -18,22 +18,18 @@ export default function NewsAdminPage() {
   const toast = useToast()
   const [items, setItems] = useState<News[]>([])
   const [q, setQ] = useState('')
+  const [published, setPublished] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [editing, setEditing] = useState<News | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   async function load() {
-    const all = await remoteCms.news(true).catch(() => [])
-    setItems(all as News[])
+    const data = await remoteCms.news(true, q || undefined, published === '1' ? true : published === '0' ? false : undefined, String(page)).catch(() => ({ items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any))
+    setItems((data as any).items || [])
+    setTotalPages((data as any).totalPages || 1)
   }
-  useEffect(() => { load() }, [])
-
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    return items.filter((n) => {
-      if (!term) return true
-      return `${n.titleFr} ${n.excerptFr} ${n.tagFr}`.toLowerCase().includes(term)
-    })
-  }, [items, q])
+  useEffect(() => { load() }, [q, published, page])
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
@@ -51,9 +47,16 @@ export default function NewsAdminPage() {
         </button>
       </div>
 
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher..." className="pl-9" />
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="Rechercher..." className="pl-9" />
+        </div>
+        <select value={published} onChange={(e) => { setPublished(e.target.value); setPage(1) }} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+          <option value="">Tous statuts</option>
+          <option value="1">Publié</option>
+          <option value="0">Masqué</option>
+        </select>
       </div>
 
       <Card>
@@ -71,7 +74,7 @@ export default function NewsAdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((n) => (
+                {items.map((n) => (
                   <tr key={n.id} className="border-b border-border last:border-0">
                     <td className="p-4 font-medium">{n.titleFr}</td>
                     <td className="p-4 text-muted-foreground line-clamp-1">{n.excerptFr}</td>
@@ -88,12 +91,20 @@ export default function NewsAdminPage() {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Aucune actualité.</td></tr>}
+                {items.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Aucune actualité.</td></tr>}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Précédent</button>
+          <span className="text-sm text-muted-foreground">Page {page} / {totalPages}</span>
+          <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Suivant</button>
+        </div>
+      )}
 
       {showForm && (
         <NewsForm news={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />

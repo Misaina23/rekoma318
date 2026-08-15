@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Search, Plus, Pencil, Trash2, X, Check, Upload, Image as ImageIcon } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
@@ -30,23 +30,18 @@ export default function DocumentsAdminPage() {
   const [items, setItems] = useState<Document[]>([])
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
+  const [published, setPublished] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [editing, setEditing] = useState<Document | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   async function load() {
-    const all = await remoteCms.documents(true).catch(() => [])
-    setItems(all as Document[])
+    const data = await remoteCms.documents(true, q || undefined, cat || undefined, published === '1' ? true : published === '0' ? false : undefined, String(page)).catch(() => ({ items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any))
+    setItems((data as any).items || [])
+    setTotalPages((data as any).totalPages || 1)
   }
-  useEffect(() => { load() }, [])
-
-  const filtered = useMemo(() => {
-    const term = q.trim().toLowerCase()
-    return items.filter((d) => {
-      if (cat && d.category !== cat) return false
-      if (!term) return true
-      return `${d.title} ${d.description || ''} ${d.category || ''}`.toLowerCase().includes(term)
-    })
-  }, [items, q, cat])
+  useEffect(() => { load() }, [q, cat, published, page])
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
@@ -67,11 +62,16 @@ export default function DocumentsAdminPage() {
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher..." className="pl-9" />
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="Rechercher..." className="pl-9" />
         </div>
-        <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+        <select value={cat} onChange={(e) => { setCat(e.target.value); setPage(1) }} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
           <option value="">Toutes catégories</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={published} onChange={(e) => { setPublished(e.target.value); setPage(1) }} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+          <option value="">Tous statuts</option>
+          <option value="1">Publié</option>
+          <option value="0">Masqué</option>
         </select>
       </div>
 
@@ -90,7 +90,7 @@ export default function DocumentsAdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((d) => (
+                {items.map((d) => (
                   <tr key={d.id} className="border-b border-border last:border-0">
                     <td className="p-4 font-medium">{d.title}</td>
                     <td className="p-4 text-muted-foreground"><Badge variant="outline">{d.category || '—'}</Badge></td>
@@ -107,12 +107,20 @@ export default function DocumentsAdminPage() {
                     </td>
                   </tr>
                 ))}
-                {filtered.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Aucun document.</td></tr>}
+                {items.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Aucun document.</td></tr>}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Précédent</button>
+          <span className="text-sm text-muted-foreground">Page {page} / {totalPages}</span>
+          <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Suivant</button>
+        </div>
+      )}
 
       {showForm && (
         <DocumentForm document={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
@@ -140,11 +148,10 @@ function DocumentForm({ document, onClose, onSaved }: { document: Document | nul
     setSaving(true)
     try {
       const body = { ...form, category: form.category || null }
-      let r
       if (document) {
-        r = await remoteCms.updateDocument(document.id, body)
+        await remoteCms.updateDocument(document.id, body)
       } else {
-        r = await remoteCms.createDocument(body)
+        await remoteCms.createDocument(body)
       }
       toast('Enregistré ✓', 'success')
       onSaved()

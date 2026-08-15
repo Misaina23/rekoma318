@@ -2,13 +2,24 @@ import { prisma } from '../lib/prisma.js'
 import PDFDocument from 'pdfkit'
 
 // ---------- News (Actualités) ----------
+const NEWS_PAGE_SIZE = 4
+
 export async function listNews(req, res) {
-  const publishedOnly = req.query.all !== '1'
-  const items = await prisma.news.findMany({
-    where: { ...(publishedOnly ? { published: true } : {}), deletedAt: null },
-    orderBy: { date: 'desc' },
-  })
-  res.json(items)
+  const { q, published, page } = req.query
+  const where: any = { deletedAt: null }
+  if (q) where.OR = [
+    { titleFr: { contains: String(q), mode: 'insensitive' } },
+    { excerptFr: { contains: String(q), mode: 'insensitive' } },
+    { tagFr: { contains: String(q), mode: 'insensitive' } },
+  ]
+  if (published !== undefined) where.published = String(published) === '1' || String(published) === 'true'
+  const pageNum = Math.max(1, Number(page) || 1)
+  const skip = (pageNum - 1) * NEWS_PAGE_SIZE
+  const [items, total] = await Promise.all([
+    prisma.news.findMany({ where, orderBy: { date: 'desc' }, skip, take: NEWS_PAGE_SIZE }),
+    prisma.news.count({ where }),
+  ])
+  res.json({ items, total, page: pageNum, pageSize: NEWS_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(total / NEWS_PAGE_SIZE)) })
 }
 
 export async function createNews(req, res) {
@@ -41,13 +52,24 @@ export async function deleteNews(req, res) {
 }
 
 // ---------- Documents ----------
+const DOCUMENTS_PAGE_SIZE = 4
+
 export async function listDocuments(req, res) {
-  const publishedOnly = req.query.all !== '1'
-  const items = await prisma.document.findMany({
-    where: { ...(publishedOnly ? { published: true } : {}), deletedAt: null },
-    orderBy: { date: 'desc' },
-  })
-  res.json(items)
+  const { q, category, published, page } = req.query
+  const where: any = { deletedAt: null }
+  if (q) where.OR = [
+    { title: { contains: String(q), mode: 'insensitive' } },
+    { description: { contains: String(q), mode: 'insensitive' } },
+  ]
+  if (category) where.category = category
+  if (published !== undefined) where.published = String(published) === '1' || String(published) === 'true'
+  const pageNum = Math.max(1, Number(page) || 1)
+  const skip = (pageNum - 1) * DOCUMENTS_PAGE_SIZE
+  const [items, total] = await Promise.all([
+    prisma.document.findMany({ where, orderBy: { date: 'desc' }, skip, take: DOCUMENTS_PAGE_SIZE }),
+    prisma.document.count({ where }),
+  ])
+  res.json({ items, total, page: pageNum, pageSize: DOCUMENTS_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(total / DOCUMENTS_PAGE_SIZE)) })
 }
 
 export async function createDocument(req, res) {
@@ -77,13 +99,19 @@ export async function deleteDocument(req, res) {
 }
 
 // ---------- Gallery (événements + photos) ----------
+const GALLERY_PAGE_SIZE = 4
+
 export async function listGallery(req, res) {
-  const events = await prisma.galleryEvent.findMany({
-    where: { deletedAt: null },
-    orderBy: { date: 'desc' },
-    include: { photos: { where: { event: { deletedAt: null } } } },
-  })
-  res.json(events)
+  const { q, page } = req.query
+  const where: any = { deletedAt: null }
+  if (q) where.title = { contains: String(q), mode: 'insensitive' }
+  const pageNum = Math.max(1, Number(page) || 1)
+  const skip = (pageNum - 1) * GALLERY_PAGE_SIZE
+  const [items, total] = await Promise.all([
+    prisma.galleryEvent.findMany({ where, orderBy: { date: 'desc' }, skip, take: GALLERY_PAGE_SIZE, include: { photos: { where: { event: { deletedAt: null } } } } }),
+    prisma.galleryEvent.count({ where }),
+  ])
+  res.json({ items, total, page: pageNum, pageSize: GALLERY_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(total / GALLERY_PAGE_SIZE)) })
 }
 
 export async function createGalleryEvent(req, res) {
@@ -119,9 +147,25 @@ export async function deleteGalleryEvent(req, res) {
 }
 
 // ---------- Activities ----------
+const ACTIVITIES_PAGE_SIZE = 4
+
 export async function listActivities(req, res) {
-  const items = await prisma.activity.findMany({ where: { deletedAt: null }, orderBy: { date: 'desc' } })
-  res.json(items)
+  const { q, status, page } = req.query
+  const where: any = { deletedAt: null }
+  if (q) where.OR = [
+    { title: { contains: String(q), mode: 'insensitive' } },
+    { responsible: { contains: String(q), mode: 'insensitive' } },
+    { objectives: { contains: String(q), mode: 'insensitive' } },
+    { results: { contains: String(q), mode: 'insensitive' } },
+  ]
+  if (status) where.status = status
+  const pageNum = Math.max(1, Number(page) || 1)
+  const skip = (pageNum - 1) * ACTIVITIES_PAGE_SIZE
+  const [items, total] = await Promise.all([
+    prisma.activity.findMany({ where, orderBy: { date: 'desc' }, skip, take: ACTIVITIES_PAGE_SIZE }),
+    prisma.activity.count({ where }),
+  ])
+  res.json({ items, total, page: pageNum, pageSize: ACTIVITIES_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(total / ACTIVITIES_PAGE_SIZE)) })
 }
 
 export async function createActivity(req, res) {

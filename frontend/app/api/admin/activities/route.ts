@@ -7,8 +7,11 @@ export async function GET(req: NextRequest) {
   if (res) return res
   const token = req.cookies.get('rekoma_access_token')?.value
   const authHeader = token ? `Bearer ${token}` : undefined
+  const q = req.nextUrl.searchParams.get('q') || undefined
+  const status = req.nextUrl.searchParams.get('status') || undefined
+  const page = req.nextUrl.searchParams.get('page') || undefined
   try {
-    return NextResponse.json(await remoteActivities.list(authHeader))
+    return NextResponse.json(await remoteActivities.list(q, status, page, authHeader))
   } catch (e: any) {
     return NextResponse.json({ message: e.message }, { status: e.status || 500 })
   }

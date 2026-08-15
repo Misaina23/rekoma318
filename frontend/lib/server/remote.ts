@@ -38,7 +38,14 @@ function unwrap<T>(data: any): T {
 
 // ---------- Activities ----------
 export const remoteActivities = {
-  list: (authHeader?: string | null) => call('/api/cms/activities', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  list: (q?: string, status?: string, page?: string, authHeader?: string | null) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status) params.set('status', status)
+    if (page) params.set('page', page)
+    const qs = params.toString()
+    return call(`/api/cms/activities${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
   create: (body: any, authHeader?: string | null) => call('/api/cms/activities', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   update: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   remove: (id: string, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'DELETE' }, authHeader),
@@ -86,22 +93,57 @@ export const remoteMessages = {
     call(`/api/messages/${id}/reply`, { method: 'POST', body: JSON.stringify({ from, body }) }, authHeader).then((d) => unwrap<any>(d)),
 }
 
-// ---------- News / Documents / Gallery (CMS public + admin) ----------
+// ---------- News / Documents / Gallery / Activities (CMS public + admin) ----------
 export const remoteCms = {
-  news: (all = false, authHeader?: string | null) => call(`/api/cms/news${all ? '?all=1' : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d)),
+  news: (all = false, q?: string, published?: boolean, page?: string, authHeader?: string | null) => {
+    const params = new URLSearchParams()
+    if (all) params.set('all', '1')
+    if (q) params.set('q', q)
+    if (published !== undefined) params.set('published', String(published))
+    if (page) params.set('page', page)
+    const qs = params.toString()
+    return call(`/api/cms/news${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
   createNews: (body: any, authHeader?: string | null) => call('/api/cms/news', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   updateNews: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/news/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   deleteNews: (id: string, authHeader?: string | null) => call(`/api/cms/news/${id}`, { method: 'DELETE' }, authHeader),
 
-  documents: (all = false, authHeader?: string | null) => call(`/api/cms/documents${all ? '?all=1' : ''}`, {}, authHeader).then((d) => unwrap<any[]>(d)),
+  documents: (all = false, q?: string, category?: string, published?: boolean, page?: string, authHeader?: string | null) => {
+    const params = new URLSearchParams()
+    if (all) params.set('all', '1')
+    if (q) params.set('q', q)
+    if (category) params.set('category', category)
+    if (published !== undefined) params.set('published', String(published))
+    if (page) params.set('page', page)
+    const qs = params.toString()
+    return call(`/api/cms/documents${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
   createDocument: (body: any, authHeader?: string | null) => call('/api/cms/documents', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   updateDocument: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/documents/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   deleteDocument: (id: string, authHeader?: string | null) => call(`/api/cms/documents/${id}`, { method: 'DELETE' }, authHeader),
 
-  gallery: (authHeader?: string | null) => call('/api/cms/gallery', {}, authHeader).then((d) => unwrap<any[]>(d)),
+  gallery: (q?: string, page?: string, authHeader?: string | null) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (page) params.set('page', page)
+    const qs = params.toString()
+    return call(`/api/cms/gallery${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
   createGalleryEvent: (body: any, authHeader?: string | null) => call('/api/cms/gallery', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   addGalleryPhoto: (id: string, url: string, authHeader?: string | null) => call(`/api/cms/gallery/${id}/photos`, { method: 'POST', body: JSON.stringify({ url }) }, authHeader).then((d) => unwrap<any>(d)),
   deleteGalleryEvent: (id: string, authHeader?: string | null) => call(`/api/cms/gallery/${id}`, { method: 'DELETE' }, authHeader),
+
+  activities: (q?: string, status?: string, page?: string, authHeader?: string | null) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (status) params.set('status', status)
+    if (page) params.set('page', page)
+    const qs = params.toString()
+    return call(`/api/cms/activities${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
+  createActivity: (body: any, authHeader?: string | null) => call('/api/cms/activities', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  updateActivity: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  removeActivity: (id: string, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'DELETE' }, authHeader),
 }
 
 // ---------- Beneficiaries ----------

@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Check, Image as ImageIcon } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { Plus, Pencil, Trash2, X, Check, Search, Image as ImageIcon } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
-import { Input, Label, Textarea } from '@/components/ui/input'
+import { Input, Label } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,17 +17,21 @@ type Event = { id: string; title: string; date?: string; photos: Photo[] }
 export default function GalleryAdminPage() {
   const { t } = useI18n()
   const toast = useToast()
-  const [events, setEvents] = useState<Event[]>([])
+  const [items, setItems] = useState<Event[]>([])
+  const [q, setQ] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [editing, setEditing] = useState<Event | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [photoEventId, setPhotoEventId] = useState<string | null>(null)
   const [photoUrl, setPhotoUrl] = useState('')
 
   async function load() {
-    const data = await remoteCms.gallery().catch(() => [])
-    setEvents(data as Event[])
+    const data = await remoteCms.gallery(q || undefined, String(page)).catch(() => ({ items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any))
+    setItems((data as any).items || [])
+    setTotalPages((data as any).totalPages || 1)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [q, page])
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
@@ -45,22 +49,22 @@ export default function GalleryAdminPage() {
     load()
   }
 
-  async function removePhoto(eventId: string, photoId: string) {
-    // backend doesn't have delete photo endpoint yet; reload to reflect any future removal
-    toast('Suppression photo indisponible', 'error')
-  }
-
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{t.admin.nav.gallery}</h1>
         <button onClick={() => { setEditing(null); setShowForm(true) }} className={cn(buttonVariants({ size: 'sm' }))}>
           <Plus className="h-4 w-4" /> Nouvel événement
         </button>
       </div>
 
+      <div className="relative flex-1 min-w-[200px]">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="Rechercher un événement..." className="pl-9" />
+      </div>
+
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {events.map((ev) => (
+        {items.map((ev) => (
           <Card key={ev.id} className="flex h-full flex-col">
             <CardContent className="flex flex-1 flex-col p-5">
               <div className="flex items-start justify-between">
@@ -89,8 +93,16 @@ export default function GalleryAdminPage() {
             </CardContent>
           </Card>
         ))}
-        {events.length === 0 && <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">Aucun événement.</CardContent></Card>}
+        {items.length === 0 && <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">Aucun événement.</CardContent></Card>}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Précédent</button>
+          <span className="text-sm text-muted-foreground">Page {page} / {totalPages}</span>
+          <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Suivant</button>
+        </div>
+      )}
 
       {showForm && (
         <EventForm event={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />

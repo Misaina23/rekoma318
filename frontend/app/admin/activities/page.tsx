@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { Plus, Pencil, Trash2, X, Check, Search } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { remoteCms } from '@/lib/server/remote'
 
 type Activity = {
   id: string
@@ -28,27 +29,46 @@ export default function ActivitiesPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [items, setItems] = useState<Activity[]>([])
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
   const [editing, setEditing] = useState<Activity | null>(null)
   const [showForm, setShowForm] = useState(false)
 
-  async function load() { const r = await fetch('/api/admin/activities'); if (r.ok) setItems(await r.json()) }
-  useEffect(() => { load() }, [])
+  async function load() {
+    const data = await remoteCms.activities(q || undefined, status || undefined, String(page)).catch(() => ({ items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any))
+    setItems((data as any).items || [])
+    setTotalPages((data as any).totalPages || 1)
+  }
+  useEffect(() => { load() }, [q, status, page])
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const r = await fetch(`/api/admin/activities/${id}`, { method: 'DELETE' })
+    const r = await fetch(`/api/admin/activities/${id}`, { method: 'DELETE', credentials: 'include' })
     if (r.ok) { toast(t.admin.delete + ' ✓', 'success'); load() } else toast(t.admin.delete, 'error')
   }
 
-  const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date))
+  const sorted = useMemo(() => [...items].sort((a, b) => a.date.localeCompare(b.date)), [items])
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{t.admin.nav.activities}</h1>
         <button onClick={() => { setEditing(null); setShowForm(true) }} className={cn(buttonVariants({ size: 'sm' }))}>
           <Plus className="h-4 w-4" /> {t.admin.new}
         </button>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder="Rechercher..." className="pl-9" />
+        </div>
+        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+          <option value="">Tous statuts</option>
+          {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -76,6 +96,14 @@ export default function ActivitiesPage() {
         ))}
         {sorted.length === 0 && <Card><CardContent className="p-10 text-center text-muted-foreground">{t.search.empty}</CardContent></Card>}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Précédent</button>
+          <span className="text-sm text-muted-foreground">Page {page} / {totalPages}</span>
+          <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Suivant</button>
+        </div>
+      )}
 
       {showForm && (
         <ActivityForm activity={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />
