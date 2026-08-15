@@ -7,18 +7,34 @@ dotenv.config()
 const prisma = new PrismaClient()
 
 async function main() {
-  const email = 'andrianisaina23@gmail.com'
-  const plain = '2311saina!'
-  const hashed = await bcrypt.hash(plain, 12)
+  const email1 = 'andrianisaina23@gmail.com'
+  const plain1 = '2311saina!'
+  const hashed1 = await bcrypt.hash(plain1, 12)
 
   await prisma.user.upsert({
-    where: { email },
+    where: { email: email1 },
     update: { emailVerified: true },
     create: {
-      email,
-      password: hashed,
+      email: email1,
+      password: hashed1,
       role: 'super_admin',
       name: 'Super Admin',
+      emailVerified: true,
+    },
+  })
+
+  const email2 = 'botomznanga@gmail.com'
+  const plain2 = 'elju2026!'
+  const hashed2 = await bcrypt.hash(plain2, 12)
+
+  await prisma.user.upsert({
+    where: { email: email2 },
+    update: { emailVerified: true },
+    create: {
+      email: email2,
+      password: hashed2,
+      role: 'super_admin',
+      name: 'Super Admin 2',
       emailVerified: true,
     },
   })
@@ -109,8 +125,8 @@ async function main() {
     }
   }
 
-  await prisma.user.update({
-    where: { email },
+  await prisma.user.updateMany({
+    where: { email: { in: [email1, email2] } },
     data: { roleId: createdRoles.super_admin.id },
   })
 
