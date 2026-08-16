@@ -87,16 +87,25 @@ export async function postVisit(req, res) {
 }
 
 export async function publicStats(req, res) {
-  const [ben, members, donations, formations] = await Promise.all([
-    prisma.beneficiary.count().catch(() => 0),
-    prisma.member.findMany({ where: { status: 'active' } }).catch(() => []),
+  const [ben, byCategory, members, donations, formations] = await Promise.all([
+    prisma.beneficiary.count({ where: { deletedAt: null } }),
+    prisma.beneficiary.groupBy({ by: ['category'], where: { deletedAt: null }, _count: { _all: true } }),
+    prisma.member.findMany({ where: { deletedAt: null } }).catch(() => []),
     prisma.donation.findMany({ where: { status: 'validated' } }).catch(() => []),
     prisma.formation.count().catch(() => 0),
   ])
+  const breakdown = byCategory.reduce((acc, g) => {
+    acc[g.category] = g._count._all
+    return acc
+  }, {})
+  for (const c of ['Distribution', 'Emploi', 'Formation', 'Autre']) {
+    if (!(c in breakdown)) breakdown[c] = 0
+  }
   const activeMembers = Array.isArray(members) ? members.length : 0
   const validatedDonations = Array.isArray(donations) ? donations.length : 0
   res.json({
     beneficiaries: ben,
+    breakdown,
     activeMembers,
     formations,
     validatedDonations,

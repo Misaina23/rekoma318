@@ -13,6 +13,7 @@ type Counter = { value: number; suffix?: string; range?: string; label: string }
 export default function ImpactPage() {
   const { t } = useI18n()
   const [counters, setCounters] = useState<Counter[]>([])
+  const [breakdown, setBreakdown] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export default function ImpactPage() {
           { value: data.formations || 0, suffix: '', label: 'Formations réalisées' },
           { value: data.validatedDonations || 0, suffix: '', label: 'Dons validés' },
         ])
+        setBreakdown(data.breakdown || {})
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -66,6 +68,18 @@ export default function ImpactPage() {
                       {loading ? <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /> : <AnimatedCounter value={c.value} suffix={c.suffix || '+'} range={String(c.value)} />}
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">{c.label}</p>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+            ))}
+            {!loading && Object.entries(breakdown).map(([category, count]) => (
+              <StaggerItem key={category}>
+                <Card className="h-full">
+                  <CardContent className="p-6">
+                    <div className="text-3xl font-bold text-primary">
+                      <AnimatedCounter value={count} suffix="+" range={String(count)} />
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{category}</p>
                   </CardContent>
                 </Card>
               </StaggerItem>

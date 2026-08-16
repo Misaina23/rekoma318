@@ -171,6 +171,7 @@ export const remotePublic = {
   postMessage: (body: any, authHeader?: string | null) => call('/api/messages', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   postDonation: (body: any, authHeader?: string | null) => call('/api/donations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   postVisit: (authHeader?: string | null) => call('/api/visits', { method: 'POST' }, authHeader),
+  publicStats: () => call('/api/stats/public', {}, null).then((d) => d as any),
 }
 
 // ---------- Payments ----------
