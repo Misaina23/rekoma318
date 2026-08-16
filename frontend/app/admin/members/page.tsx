@@ -265,23 +265,27 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
                <Input value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="ex: Trésorier" />
              </div>
            </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>{t.admin.phone}</Label>
-              <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t.admin.status}</Label>
-              <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                <option value="active">{t.admin.active}</option>
-                <option value="inactive">{t.admin.inactive}</option>
-              </select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>{t.admin.address}</Label>
-             <Textarea value={form.address} onChange={(e) => set('address', e.target.value)} />
+           <div className="grid grid-cols-2 gap-3">
+             <div className="space-y-1.5">
+               <Label>{t.admin.phone}</Label>
+               <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+             </div>
+             <div className="space-y-1.5">
+               <Label>{t.admin.status}</Label>
+               <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+                 <option value="active">{t.admin.active}</option>
+                 <option value="inactive">{t.admin.inactive}</option>
+               </select>
+             </div>
            </div>
+           <div className="space-y-1.5">
+             <Label>{t.admin.email}</Label>
+             <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
+           </div>
+           <div className="space-y-1.5">
+             <Label>{t.admin.address}</Label>
+              <Textarea value={form.address} onChange={(e) => set('address', e.target.value)} />
+            </div>
            <div className="space-y-1.5">
              <Label>Description</Label>
              <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} />
