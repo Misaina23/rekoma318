@@ -1,10 +1,11 @@
 import http from 'http'
 import os from 'os'
-import app from './app.js'
 import dotenv from 'dotenv'
-import { verifySMTP } from './utils/mail.js'
 
 dotenv.config()
+
+import app from './app.js'
+import { verifySMTP } from './utils/mail.js'
 
 const PORT = process.env.PORT || 4000
 const HOST = process.env.HOST || '0.0.0.0'
