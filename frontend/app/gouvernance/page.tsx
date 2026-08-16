@@ -29,9 +29,12 @@ export default function GovernancePage() {
 
   useEffect(() => {
     fetch('/api/members/public')
-      .then((r) => r.ok ? r.json() : [])
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data) => { setMembers(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch((e) => { console.error('Failed to load members:', e); setLoading(false) })
   }, [])
 
   const sorted = useMemo(() => {

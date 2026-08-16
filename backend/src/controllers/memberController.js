@@ -13,6 +13,7 @@ export async function listMembersPublic(req, res) {
       designation: true,
       description: true,
       photo: true,
+      displayOrder: true,
     },
   })
   res.json(items)
