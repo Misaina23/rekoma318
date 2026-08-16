@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
-import { Search, Plus, Pencil, Trash2, X, Check, Users, Eye, Download } from 'lucide-react'
+import { Search, Plus, Pencil, Trash2, X, Check, Download } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
@@ -171,8 +171,8 @@ export default function BeneficiariesPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className={cn('lg:col-span-2', selected && 'hidden lg:block')}>
+      <div>
+        <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -211,14 +211,14 @@ export default function BeneficiariesPage() {
           </CardContent>
         </Card>
 
-        <Card className={cn(!selected && 'lg:col-span-3')}>
-          <CardContent className="p-6">
-            {selected ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Détails</h2>
-                  <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
-                </div>
+        {selected && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={() => setSelected(null)}>
+            <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <h2 className="text-lg font-semibold">Détails</h2>
+                <button onClick={() => setSelected(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+              </div>
+              <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">Nom</p>
@@ -280,14 +280,9 @@ export default function BeneficiariesPage() {
                   <button onClick={() => remove(selected.id)} className={cn(buttonVariants({ variant: 'destructive', size: 'sm' }))}><Trash2 className="mr-2 h-4 w-4" /> Supprimer</button>
                 </div>
               </div>
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center text-center text-muted-foreground">
-                <Eye className="mb-2 h-8 w-8" />
-                <p>Sélectionnez un bénéficiaire pour voir les détails</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-center gap-2">
