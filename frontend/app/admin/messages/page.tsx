@@ -34,7 +34,7 @@ export default function AdminMessagesPage() {
   const [q, setQ] = useState('')
   const [reply, setReply] = useState('')
   const [sending, setSending] = useState(false)
-  const [emailStatus, setEmailStatus] = useState<{ show: boolean; type: 'success' | 'warning' | 'error'; message: string }>({
+  const [emailStatus, setEmailStatus] = useState<{ show: boolean; type: 'success' | 'error'; message: string }>({
     show: false,
     type: 'success',
     message: ''
@@ -108,7 +108,7 @@ export default function AdminMessagesPage() {
       const originalTo = d?.email?.originalTo || null
 
       let message = ''
-      let type: 'success' | 'warning' | 'error' = 'success'
+      let type: 'success' | 'error' = 'success'
 
       if (emailOk && !devRedirect) {
         message = '✅ Réponse envoyée avec succès par email'
@@ -117,15 +117,15 @@ export default function AdminMessagesPage() {
         message = `✅ Réponse enregistrée et email envoyé (Mode DEV: redirigé vers votre adresse)`
         type = 'success'
       } else if (!emailOk && devRedirect) {
-        message = `⚠️ Réponse enregistrée mais email redirigé en mode DEV. L'email original devait être envoyé à ${originalTo || 'inconnu'}`
+        message = `⚠️ Réponse enregistrée mais email redirigé en mode DEV. L&apos;email original devait être envoyé à ${originalTo || 'inconnu'}`
         type = 'error'
       } else {
         // Gérer les différentes erreurs Resend
         if (emailError?.includes('verify a domain')) {
-          message = `⚠️ Réponse enregistrée mais email non envoyé. Pour envoyer des emails à d'autres destinataires, vérifiez un domaine sur resend.com/domains`
+          message = `⚠️ Réponse enregistrée mais email non envoyé. Pour envoyer des emails à d&apos;autres destinataires, vérifiez un domaine sur resend.com/domains`
           type = 'error'
         } else if (emailError?.includes('only send testing emails to your own email')) {
-          message = `⚠️ Mode test: vous ne pouvez envoyer des emails qu'à votre propre adresse (andrianisaina23@gmail.com). Utilisez DEV_EMAIL_MODE=true en développement.`
+          message = `⚠️ Mode test: vous ne pouvez envoyer des emails qu&apos;à votre propre adresse (andrianisaina23@gmail.com). Utilisez DEV_EMAIL_MODE=true en développement.`
           type = 'error'
         } else {
           message = `⚠️ Réponse enregistrée mais email non envoyé : ${emailError || 'erreur inconnue'}`
@@ -399,10 +399,10 @@ export default function AdminMessagesPage() {
                         <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                         <div>
                           <p className="font-semibold">Mode Développement</p>
-                          <p className="text-xs text-blue-700">
-                            Les emails sont redirigés vers votre adresse de développement.
-                            Pour envoyer à d'autres adresses, vérifiez un domaine sur resend.com/domains.
-                          </p>
+                           <p className="text-xs text-blue-700">
+                             Les emails sont redirigés vers votre adresse de développement.
+                             Pour envoyer à d&apos;autres adresses, vérifiez un domaine sur resend.com/domains.
+                           </p>
                         </div>
                       </div>
                     )}
