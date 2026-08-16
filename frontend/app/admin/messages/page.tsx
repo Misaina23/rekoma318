@@ -33,6 +33,7 @@ export default function AdminMessagesPage() {
   const [filter, setFilter] = useState<'all' | 'unread' | 'archived'>('all')
   const [q, setQ] = useState('')
   const [reply, setReply] = useState('')
+  const [sending, setSending] = useState(false)
 
   async function load() {
     const r = await fetch('/api/admin/messages')
@@ -66,10 +67,33 @@ export default function AdminMessagesPage() {
 
   async function sendReply() {
     if (!selected || !reply.trim()) return
-    const replies = [...selected.replies, { from: 'REKOMA', body: reply, at: new Date().toISOString() }]
-    await patch(selected, { replies, read: true })
-    setReply('')
-    toast(t.admin.reply + ' ✓', 'success')
+    setSending(true)
+    try {
+      const r = await fetch(`/api/admin/messages/${selected.id}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ body: reply }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(d?.message || 'Erreur envoi')
+
+      const emailOk = d?.email?.success !== false
+      const emailError = d?.email?.error
+
+      setMessages((list) => list.map((x) => (x.id === selected.id ? { ...x, replies: d.reply ? [d.reply] : x.replies, read: true } : x)))
+      setSelected((s) => (s?.id === selected.id ? { ...s, replies: d.reply ? [d.reply] : s.replies, read: true } : s))
+      setReply('')
+
+      if (emailOk) {
+        toast('Réponse envoyée ✓', 'success')
+      } else {
+        toast(`Réponse enregistrée mais email non envoyé : ${emailError || 'inconnu'}`, 'error')
+      }
+    } catch (e: any) {
+      toast(e?.message || 'Erreur', 'error')
+    } finally {
+      setSending(false)
+    }
   }
 
   async function del(m: Msg) {
@@ -137,22 +161,43 @@ export default function AdminMessagesPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 rounded-xl border border-border bg-secondary/40 p-4 text-sm">{selected.body}</div>
+                   <div className="mt-4 rounded-xl border border-border bg-secondary/40 p-4 text-sm">
+                     <div className="mb-2 flex items-center justify-between">
+                       <span className="text-xs font-semibold uppercase text-muted-foreground">Message original</span>
+                       <span className="text-xs text-muted-foreground">{selected.createdAt ? new Date(selected.createdAt).toLocaleString('fr-FR') : ''}</span>
+                     </div>
+                     <p className="whitespace-pre-wrap">{selected.body}</p>
+                   </div>
 
-                  {selected.replies.map((r, i) => (
-                    <div key={i} className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
-                      <p className="text-xs font-semibold text-primary">{r.from}</p>
-                      <p className="mt-1">{r.body}</p>
-                    </div>
-                  ))}
+                   {selected.replies.map((r, i) => (
+                     <div key={i} className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm">
+                       <div className="flex items-center justify-between">
+                         <p className="text-xs font-semibold text-primary">{r.from}</p>
+                         <span className="text-xs text-muted-foreground">{r.at ? new Date(r.at).toLocaleString('fr-FR') : ''}</span>
+                       </div>
+                       <p className="mt-1">{r.body}</p>
+                     </div>
+                   ))}
 
-                  <div className="mt-4 space-y-2">
-                    <Label>{t.admin.reply}</Label>
-                    <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="..." />
-                    <button onClick={sendReply} className={cn(buttonVariants({ size: 'sm' }))}>
-                      <Send className="h-4 w-4" /> {t.admin.reply}
-                    </button>
-                  </div>
+                   <div className="mt-6 space-y-2">
+                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                       <div>
+                         <Label>À</Label>
+                         <Input type="email" value={selected.email} readOnly className="bg-secondary/40" />
+                       </div>
+                       <div>
+                         <Label>Objet</Label>
+                         <Input type="text" value={`RE: ${selected.subject || 'Votre message à REKOMA'}`} readOnly className="bg-secondary/40" />
+                       </div>
+                     </div>
+                     <div>
+                       <Label>Votre réponse</Label>
+                       <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Écrivez votre réponse…" rows={5} />
+                     </div>
+                     <button onClick={sendReply} disabled={sending} className={cn(buttonVariants({ size: 'sm' }))}>
+                       {sending ? 'Envoi...' : <><Send className="mr-2 h-4 w-4" /> Envoyer la réponse</>}
+                     </button>
+                   </div>
                 </CardContent>
               </Card>
             ) : (

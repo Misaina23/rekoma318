@@ -71,14 +71,19 @@ export async function replyMessage(req, res) {
     data: { messageId: id, from: String(from || 'REKOMA').slice(0, 120), body: String(body).slice(0, 8000) },
   })
 
-  const emailRes = await sendEmail({
-    to: message.email,
-    subject: `RE: ${message.subject || 'Votre message à REKOMA'}`,
-    html: `<p>${body.replace(/\n/g, '<br/>')}</p>`,
-    text: body,
-  }).catch((e) => ({ success: false, error: String(e) }))
+  let emailResult = { success: false, error: 'not_sent' }
+  try {
+    emailResult = await sendEmail({
+      to: message.email,
+      subject: `RE: ${message.subject || 'Votre message à REKOMA'}`,
+      html: `<p>${body.replace(/\n/g, '<br/>')}</p>`,
+      text: body,
+    })
+  } catch (e) {
+    emailResult = { success: false, error: String(e?.message || e) }
+  }
 
-  res.json({ success: true, reply, email: emailRes })
+  res.json({ success: true, reply, email: emailResult })
 }
 
 // ---------- Visits ----------
