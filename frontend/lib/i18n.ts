@@ -2,7 +2,7 @@ export type Locale = 'fr' | 'en'
 
 export const fr = {
   meta: {
-    title: 'REKOMA — Regroupement des Kidabo Opportunistes de Midongy Atsimo',
+    title: 'REKOMA — Regroupement des Komarady Objectiviste de Midongy Atsimo',
     description:
       'REKOMA accompagne le développement socio-économique durable et inclusif de la commune rurale de Midongy Atsimo, à Madagascar, à travers le projet PDIMA.',
   },
@@ -43,7 +43,7 @@ export const fr = {
     statsLabel: 'REKOMA en chiffres',
     introTitle: 'Une association communautaire au service de Midongy Atsimo',
     introText:
-      'REKOMA (Regroupement des Kidabo Opportunistes de Midongy Atsimo) est une association communautaire à but non lucratif située à Midongy Atsimo, Madagascar. Sa mission est de contribuer au développement socio-économique durable et inclusif de la commune rurale de Midongy Atsimo.',
+      'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) est une association communautaire à but non lucratif située à Midongy Atsimo, Madagascar. Sa mission est de contribuer au développement socio-économique durable et inclusif de la commune rurale de Midongy Atsimo.',
     introPoints: [
       'Développement rural et amélioration des conditions de vie',
       'Autonomisation des jeunes et des femmes',
@@ -299,7 +299,7 @@ export const fr = {
     items: [
       {
         q: 'Qu’est-ce que REKOMA ?',
-        a: 'REKOMA (Regroupement des Kidabo Opportunistes de Midongy Atsimo) est une association communautaire à but non lucratif située à Midongy Atsimo, Madagascar, créée en 2025.',
+        a: 'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) est une association communautaire à but non lucratif située à Midongy Atsimo, Madagascar, créée en 2025.',
       },
       {
         q: 'Quel est le projet principal ?',
@@ -407,7 +407,7 @@ export const fr = {
 
 export const en: typeof fr = {
   meta: {
-    title: 'REKOMA — Regroupement des Kidabo Opportunistes de Midongy Atsimo',
+    title: 'REKOMA — Regroupement des Komarady Objectiviste de Midongy Atsimo',
     description:
       'REKOMA supports the sustainable and inclusive socio-economic development of the rural commune of Midongy Atsimo, Madagascar, through the PDIMA project.',
   },
@@ -448,7 +448,7 @@ export const en: typeof fr = {
     statsLabel: 'REKOMA in numbers',
     introTitle: 'A community association serving Midongy Atsimo',
     introText:
-      'REKOMA (Regroupement des Kidabo Opportunistes de Midongy Atsimo) is a non-profit community association based in Midongy Atsimo, Madagascar. Its mission is to contribute to the sustainable and inclusive socio-economic development of the rural commune of Midongy Atsimo.',
+      'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) is a non-profit community association based in Midongy Atsimo, Madagascar. Its mission is to contribute to the sustainable and inclusive socio-economic development of the rural commune of Midongy Atsimo.',
     introPoints: [
       'Rural development and improved living conditions',
       'Empowerment of youth and women',
@@ -675,7 +675,7 @@ export const en: typeof fr = {
     items: [
       {
         q: 'What is REKOMA?',
-        a: 'REKOMA (Regroupement des Kidabo Opportunistes de Midongy Atsimo) is a non-profit community association based in Midongy Atsimo, Madagascar, created in 2025.',
+        a: 'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) is a non-profit community association based in Midongy Atsimo, Madagascar, created in 2025.',
       },
       {
         q: 'What is the main project?',

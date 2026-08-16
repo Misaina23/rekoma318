@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'REKOMA — Midongy Atsimo',
     short_name: 'REKOMA',
     description:
-      'REKOMA — Regroupement des Kidabo Opportunistes de Midongy Atsimo. Développement durable et inclusif.',
+      'REKOMA — Regroupement des Komarady Objectiviste de Midongy Atsimo. Développement durable et inclusif.',
     start_url: '/',
     display: 'standalone',
     background_color: '#fafaf7',

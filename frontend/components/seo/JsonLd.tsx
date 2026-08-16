@@ -3,7 +3,7 @@ export function JsonLd() {
     '@context': 'https://schema.org',
     '@type': ['Organization'],
     name: 'REKOMA',
-    alternateName: 'Regroupement des Kidabo Opportunistes de Midongy Atsimo',
+    alternateName: 'Regroupement des Komarady Objectiviste de Midongy Atsimo',
     url: process.env.NEXT_PUBLIC_SITE_URL || 'https://rekoma-318.vercel.app',
     logo: '/logo.png',
     description:
