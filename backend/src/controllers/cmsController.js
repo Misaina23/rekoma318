@@ -306,7 +306,7 @@ export async function generateCertificates(req, res) {
 
   try {
     const doc = new PDFDocument({ size: 'A4', margin: 60 })
-    const chunks: Buffer[] = []
+    const chunks = []
     doc.on('data', (chunk) => chunks.push(chunk))
     doc.on('end', () => sendBuffer(Buffer.concat(chunks)))
     doc.on('error', (err) => {
