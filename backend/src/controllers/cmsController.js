@@ -283,28 +283,44 @@ export async function generateCertificates(req, res) {
     include: { beneficiaries: { where: { deletedAt: null } } },
   })
   if (!formation) return res.status(404).json({ success: false, error: 'Formation introuvable' })
+  if (!formation.certificate) return res.status(400).json({ success: false, error: 'Cette formation ne délivre pas d’attestations.' })
 
-  const beneficiaries = formation.beneficiaries || []
+  const beneficiaries = (formation.beneficiaries || []).filter((b) => b.status !== 'inactive')
   if (beneficiaries.length === 0) {
-    return res.status(400).json({ success: false, error: 'Aucun bénéficiaire dans cette formation.' })
+    return res.status(400).json({ success: false, error: 'Aucun bénéficiaire actif dans cette formation.' })
+  }
+
+  let sent = false
+  const sendJson = (status, payload) => {
+    if (sent) return
+    sent = true
+    res.status(status).json(payload)
+  }
+  const sendBuffer = (buffer) => {
+    if (sent) return
+    sent = true
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="attestations-${formation.id}.pdf"`)
+    res.send(buffer)
   }
 
   try {
     const doc = new PDFDocument({ size: 'A4', margin: 60 })
-    const chunks = []
+    const chunks: Buffer[] = []
     doc.on('data', (chunk) => chunks.push(chunk))
-    doc.on('end', () => {
-      const buffer = Buffer.concat(chunks)
-      res.setHeader('Content-Type', 'application/pdf')
-      res.setHeader('Content-Disposition', `attachment; filename="attestations-${formation.id}.pdf"`)
-      res.send(buffer)
+    doc.on('end', () => sendBuffer(Buffer.concat(chunks)))
+    doc.on('error', (err) => {
+      console.error('PDF generation error:', err)
+      sendJson(500, { success: false, error: 'Erreur lors de la génération du PDF' })
     })
 
     const orgName = 'REKOMA'
     const issuedAt = new Date().toLocaleDateString('fr-FR')
 
-    for (const b of beneficiaries) {
-      doc.addPage()
+    for (let i = 0; i < beneficiaries.length; i++) {
+      const b = beneficiaries[i]
+      if (i > 0) doc.addPage()
+
       doc.font('Helvetica-Bold').fontSize(22).text(orgName, { align: 'center' })
       doc.moveDown(0.5)
       doc.font('Helvetica').fontSize(14).text('Attestation de participation', { align: 'center' })
@@ -335,7 +351,7 @@ export async function generateCertificates(req, res) {
     doc.end()
   } catch (err) {
     console.error('generateCertificates failed:', err)
-    res.status(500).json({ success: false, error: 'Erreur lors de la génération du PDF' })
+    sendJson(500, { success: false, error: 'Erreur lors de la génération du PDF' })
   }
 }
 
