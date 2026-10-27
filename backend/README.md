@@ -28,6 +28,7 @@ npm run dev
 Deployment notes:
 - Use PostgreSQL (Render, Supabase). Set `DATABASE_URL` on the service.
 - Ensure `JWT_SECRET` is set to a strong secret and `NODE_ENV=production`.
+- On Render, set the database's internal URL as `DATABASE_URL` when the backend and database share a region. Startup retries temporary database connection failures, then stops without using `prisma db push`.
 # Rekoma Backend
 
 Express + Prisma backend for Rekoma.

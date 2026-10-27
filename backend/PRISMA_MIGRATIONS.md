@@ -23,7 +23,7 @@ git add prisma/migrations
 git commit -m "prisma: add migrations for admin models"
 ```
 
-4. En production / CI, les migrations sont appliquées automatiquement au démarrage du conteneur via `start.sh` (exécute `npx prisma migrate deploy`, avec fallback sur `prisma db push` si nécessaire). Si vous souhaitez désactiver l'exécution automatique des migrations dans le conteneur, définissez `MIGRATE=0`.
+4. En production / CI, les migrations sont appliquées automatiquement au démarrage du conteneur via `start.sh` avec `npx prisma migrate deploy`. Les erreurs temporaires de connexion sont réessayées jusqu'à cinq fois. Si les migrations échouent, le conteneur s'arrête : le schéma n'est jamais modifié automatiquement par `prisma db push`. Si vous gérez les migrations séparément, définissez `MIGRATE=0`.
 
 5. Pour forcer l'exécution des migrations depuis le conteneur (si non activées), vous pouvez lancer :
 
@@ -34,3 +34,4 @@ docker run -e MIGRATE=1 --network=host <image> ./start.sh
 Remarques:
 - N'exécutez `prisma migrate dev` qu'en développement : en production utilisez `prisma migrate deploy`.
 - Vérifiez que la variable `DATABASE_URL` est correctement configurée avant d'exécuter les migrations.
+- Sur Render, utilisez l'URL de connexion interne de la base PostgreSQL lorsque le service web et la base sont dans la même région. Vérifiez aussi que la base est disponible avant de redéployer.
