@@ -18,6 +18,8 @@ export type Capability =
   | 'manage_activities'
   | 'manage_formations'
   | 'manage_donations'
+  | 'manage_products'
+  | 'manage_orders'
   | 'manage_news'
   | 'manage_gallery'
   | 'manage_documents'
@@ -49,6 +51,8 @@ const FULL: Capability[] = [
   'manage_activities',
   'manage_formations',
   'manage_donations',
+  'manage_products',
+  'manage_orders',
   'manage_news',
   'manage_gallery',
   'manage_documents',
@@ -75,6 +79,8 @@ export const ROLE_PERMISSIONS: Record<Role, Capability[]> = {
     'manage_activities',
     'manage_formations',
     'manage_donations',
+    'manage_products',
+    'manage_orders',
     'manage_news',
     'manage_gallery',
     'manage_documents',
@@ -83,9 +89,9 @@ export const ROLE_PERMISSIONS: Record<Role, Capability[]> = {
     'manage_beneficiaries',
     'view_analytics',
   ],
-  editor: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_documents'],
+  editor: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_documents', 'manage_products'],
   formation_lead: ['view_dashboard', 'manage_formations', 'view_analytics'],
-  finance_lead: ['view_dashboard', 'manage_donations', 'view_analytics', 'manage_settings'],
+  finance_lead: ['view_dashboard', 'manage_donations', 'manage_orders', 'view_analytics', 'manage_settings'],
   communication_lead: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_messages', 'messages.reply'],
   viewer: ['view_dashboard', 'members.view'],
 }

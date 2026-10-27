@@ -32,23 +32,22 @@ export function Header() {
       { href: '/', label: t.nav.home },
       { href: '/a-propos', label: t.nav.about },
       { href: '/pdima', label: t.nav.pdima },
-      { href: '/impact', label: t.nav.impact },
+      { href: '/articles', label: t.nav.articles },
       { href: '/gouvernance', label: t.nav.governance },
       { href: '/documents', label: t.nav.documents },
       { href: '/actualites', label: 'Actualités' },
-      { href: '/don', label: t.nav.don },
       { href: '/contact', label: t.nav.contact },
     ],
-    [t.nav.about, t.nav.contact, t.nav.documents, t.nav.don, t.nav.governance, t.nav.home, t.nav.impact, t.nav.pdima]
+    [t.nav.about, t.nav.articles, t.nav.contact, t.nav.documents, t.nav.governance, t.nav.home, t.nav.pdima]
   )
 
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-border/60 glass">
         <div className="container flex h-16 items-center justify-between gap-4">
-          <Logo />
+          <Logo priority />
 
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden items-center gap-1 xl:flex">
             {links.map((l) => {
               const active = pathname === l.href
               return (
@@ -90,7 +89,7 @@ export function Header() {
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="menu"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/60 text-foreground transition-colors hover:bg-secondary lg:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/60 text-foreground transition-colors hover:bg-secondary xl:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>

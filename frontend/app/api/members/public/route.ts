@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { remoteMembers } from '@/lib/server/remote'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const data = await remoteMembers.public()

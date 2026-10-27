@@ -181,6 +181,39 @@ model Donation {
   @@index([status])
 }
 
+model StoreProduct {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String   @default("")
+  price       Int
+  imageUrl    String?
+  sizes       String[] @default([])
+  active      Boolean  @default(true)
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([published, active])
+}
+
+model StoreOrder {
+  id             String   @id @default(cuid())
+  customerName   String
+  phone          String
+  city           String
+  deliveryType   String
+  address        String?
+  note           String?
+  items           Json
+  total           Int
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+}
+
 model Beneficiary {
   id            String     @id @default(cuid())
   firstName     String

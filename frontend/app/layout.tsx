@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Manrope } from 'next/font/google'
 import type { ReactNode } from 'react'
 import './globals.css'
 import 'sweetalert2/dist/sweetalert2.min.css'
@@ -9,6 +10,13 @@ import { JsonLd } from '@/components/seo/JsonLd'
 import { GaScript } from '@/components/analytics/GaScript'
 import { fr } from '@/lib/i18n'
 
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-manrope',
+})
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://rekoma-318.vercel.app'),
   title: fr.meta.title,
@@ -18,7 +26,7 @@ export const metadata: Metadata = {
     apple: '/logo.png',
   },
   description: fr.meta.description,
-  keywords: ['REKOMA', 'Midongy Atsimo', 'Madagascar', 'association', 'développement', 'PDIMA'],
+  keywords: ['REKOMA', 'Midongy Atsimo', 'Madagascar', 'développement local', 'entrepreneuriat', 'PDIMA', 'boutique', 'tee-shirt', 'polo'],
   openGraph: {
     title: fr.meta.title,
     description: fr.meta.description,
@@ -29,7 +37,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans">
+      <body className={`${manrope.variable} min-h-screen bg-background font-sans`}>
         <JsonLd />
         <GaScript />
         <a

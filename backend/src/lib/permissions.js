@@ -24,6 +24,8 @@ export const ALL_CAPABILITIES = [
   'manage_activities',
   'manage_formations',
   'manage_donations',
+  'manage_products',
+  'manage_orders',
   'manage_news',
   'manage_gallery',
   'manage_documents',

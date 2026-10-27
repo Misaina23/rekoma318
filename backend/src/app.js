@@ -20,6 +20,7 @@ import usersRoutes from './routes/users.js'
 import mvolaRoutes from './routes/mvola.js'
 import stripeRoutes from './routes/stripe.js'
 import rolesRoutes from './routes/roles.js'
+import storeRoutes from './routes/store.js'
 
 dotenv.config()
 
@@ -57,6 +58,7 @@ app.use('/api/users', usersRoutes)
 app.use('/api/mvola', mvolaRoutes)
 app.use('/api/stripe', stripeRoutes)
 app.use('/api/roles', rolesRoutes)
+app.use('/api/store', storeRoutes)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 app.get('/api/cors-debug', (req, res) => res.json({ origin: req.headers.origin || 'no-origin' }))

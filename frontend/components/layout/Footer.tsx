@@ -32,7 +32,7 @@ export function Footer() {
     { href: '/', label: t.nav.home },
     { href: '/a-propos', label: t.nav.about },
     { href: '/pdima', label: t.nav.pdima },
-    { href: '/impact', label: t.nav.impact },
+    { href: '/articles', label: t.nav.articles },
   ]
   const resources = [
     { href: '/gouvernance', label: t.nav.governance },

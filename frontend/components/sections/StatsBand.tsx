@@ -17,7 +17,6 @@ export function StatsBand() {
       .then((data) => {
         if (!data) return
         const next: Counter[] = [
-          { value: data.beneficiaries || 0, suffix: '+', label: 'Bénéficiaires' },
           { value: data.activeMembers || 0, suffix: '+', label: 'Membres actifs' },
           { value: data.formations || 0, suffix: '', label: 'Formations réalisées' },
           { value: data.validatedDonations || 0, suffix: '', label: 'Dons validés' },
@@ -33,7 +32,7 @@ export function StatsBand() {
 
   return (
     <section className="border-y border-border bg-secondary/40">
-      <div className="container grid grid-cols-2 gap-8 py-12 md:grid-cols-4">
+      <div className="container grid grid-cols-1 gap-8 py-12 sm:grid-cols-3">
         {counters.map((c, i) => (
           <Reveal key={i} delay={i * 0.08} className="text-center">
             <div className="text-3xl font-bold tracking-tight text-primary md:text-4xl">

@@ -5,24 +5,31 @@
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'
 
 async function call(path: string, init: RequestInit = {}, authHeader?: string | null) {
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      'content-type': 'application/json',
-      ...(init.headers || {}),
-      ...(authHeader ? { authorization: authHeader } : {}),
-    },
-    cache: 'no-store',
-  })
-  const text = await res.text()
-  const data = text ? JSON.parse(text) : null
-  if (!res.ok) {
-    const err = new Error((data && (data.error || data.message)) || `Backend ${res.status}`)
-    ;(err as any).status = res.status
-    throw err
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  try {
+    const res = await fetch(`${API}${path}`, {
+      ...init,
+      signal: init.signal || controller.signal,
+      credentials: 'include',
+      headers: {
+        'content-type': 'application/json',
+        ...(init.headers || {}),
+        ...(authHeader ? { authorization: authHeader } : {}),
+      },
+      cache: 'no-store',
+    })
+    const text = await res.text()
+    const data = text ? JSON.parse(text) : null
+    if (!res.ok) {
+      const err = new Error((data && (data.error || data.message)) || `Backend ${res.status}`)
+      ;(err as any).status = res.status
+      throw err
+    }
+    return data
+  } finally {
+    clearTimeout(timeout)
   }
-  return data
 }
 
 function unwrap<T>(data: any): T {
@@ -179,6 +186,17 @@ export const remotePayments = {
   mvolaRequest: (body: any, authHeader?: string | null) => call('/api/mvola/request', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   mvolaStatus: (reference: string, authHeader?: string | null) => call(`/api/mvola/status`, { method: 'POST', body: JSON.stringify({ reference }) }, authHeader).then((d) => unwrap<any>(d)),
   stripeCheckout: (body: any, authHeader?: string | null) => call('/api/stripe/checkout', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+}
+
+// ---------- REKOMA merchandise and orders ----------
+export const remoteStore = {
+  products: () => call('/api/store/products').then((d) => d as { items: any[] }),
+  adminProducts: (authHeader?: string | null) => call('/api/store/products/manage', {}, authHeader).then((d) => d as { items: any[] }),
+  createProduct: (body: any, authHeader?: string | null) => call('/api/store/products', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  updateProduct: (id: string, body: any, authHeader?: string | null) => call(`/api/store/products/${id}`, { method: 'PATCH', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
+  orders: (authHeader?: string | null) => call('/api/store/orders', {}, authHeader).then((d) => d as { orders: any[] }),
+  createOrder: (body: any) => call('/api/store/orders', { method: 'POST', body: JSON.stringify(body) }).then((d) => d as any),
+  updateOrder: (id: string, status: string, authHeader?: string | null) => call(`/api/store/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }, authHeader).then((d) => d as any),
 }
 
 export { API }

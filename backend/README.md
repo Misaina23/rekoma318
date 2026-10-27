@@ -71,6 +71,12 @@ Endpoints (examples):
 - POST /api/producteurs (protected)
 - PUT /api/producteurs/:id (protected)
 - DELETE /api/producteurs/:id (protected)
+- GET /api/store/products (public REKOMA merchandise catalogue)
+- POST /api/store/orders (public order request; current prices are calculated by the server)
+- GET /api/store/orders and PATCH /api/store/orders/:id (requires `manage_orders`)
+- POST /api/store/products and PATCH /api/store/products/:id (requires `manage_products`)
+
+The store migration adds the initial REKOMA merchandise catalogue. In production, run `npx prisma migrate deploy` before deploying the frontend store, then regenerate the Prisma client when building the backend.
 
 Deployment
 
