@@ -61,15 +61,6 @@ export default function AboutPage() {
           <Reveal>
             <SectionHeading eyebrow={t.about.zoneTitle} title={t.about.zoneTitle} />
             <p className="mt-4 text-muted-foreground">{t.about.zone}</p>
-            <Stagger className="mt-6 space-y-3">
-              {t.about.zoneItems.map((z) => (
-                <StaggerItem key={z}>
-                  <div className="rounded-xl border border-border bg-card p-4 text-sm font-medium">
-                    {z}
-                  </div>
-                </StaggerItem>
-              ))}
-            </Stagger>
           </Reveal>
         </div>
       </section>

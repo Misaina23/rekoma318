@@ -17,28 +17,44 @@ export default function HomePage() {
     <>
       <Hero />
 
-      <section className="border-y border-border bg-white dark:bg-background">
-        <div className="container grid items-center gap-8 py-12 md:grid-cols-[1fr_1.2fr] md:py-16">
-          <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">REKOMA · Collection</p>
-            <h2 className="mt-4 font-display text-4xl font-medium leading-[1.04] tracking-tight md:text-5xl">{t.home.storeTitle}</h2>
-            <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground">{t.home.storeText}</p>
-            <Link href="/articles" className={cn(buttonVariants({ variant: 'outline' }), 'mt-6')}>
+      <section className="overflow-hidden border-y border-border bg-[#f3f0e8] dark:bg-background">
+        <div className="container grid items-center gap-10 py-16 md:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <Reveal className="max-w-lg">
+            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+              <span className="h-px w-8 bg-accent" />
+              REKOMA · Collection
+            </p>
+            <h2 className="mt-5 font-display text-4xl font-medium leading-[1.04] tracking-tight md:text-5xl">{t.home.storeTitle}</h2>
+            <p className="mt-5 text-base leading-7 text-muted-foreground">{t.home.storeText}</p>
+            <Link
+              href="/articles"
+              className="mt-7 inline-flex items-center gap-3 border-b border-primary/40 pb-2 text-sm font-semibold text-primary transition-colors hover:border-primary"
+            >
               {t.home.storeCta}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </Reveal>
-          <div className="grid grid-cols-2 gap-2">
-            <Link href="/articles" className="relative col-span-2 aspect-[2.4] overflow-hidden bg-secondary/60">
-              <Image src="/ARTICLE/TEE SHIRT.jpg" alt="Tee-shirt de la collection REKOMA" fill sizes="(min-width: 768px) 600px, 100vw" className="object-cover" />
+          <Reveal>
+            <Link
+              href="/articles"
+              className="group block border border-black/5 bg-[#e8e4da] p-2 shadow-[0_20px_60px_-40px_rgba(30,40,30,0.45)] md:p-3"
+              aria-label={t.home.storeCta}
+            >
+              <Image
+                src="/ARTICLE/TEE SHIRT.jpg"
+                alt="Les tee-shirts REKOMA présentés en plusieurs coloris"
+                width={1264}
+                height={843}
+                quality={95}
+                sizes="(min-width: 1024px) 58vw, 100vw"
+                className="h-auto w-full transition-transform duration-500 group-hover:scale-[1.01]"
+              />
             </Link>
-            <Link href="/articles" className="relative aspect-[1.4] overflow-hidden bg-secondary/60">
-              <Image src="/ARTICLE/POLO.jpg" alt="Polo de la collection REKOMA" fill sizes="(min-width: 768px) 300px, 50vw" className="object-cover" />
-            </Link>
-            <Link href="/articles" className="relative aspect-[1.4] overflow-hidden bg-secondary/60">
-              <Image src="/ARTICLE/BLOUSON TEDDY 2.jpg" alt="Blouson Teddy de la collection REKOMA" fill sizes="(min-width: 768px) 300px, 50vw" className="object-cover" />
-            </Link>
-          </div>
+            <div className="mt-3 flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <span>Collection REKOMA</span>
+              <span>01 — Tee-shirts</span>
+            </div>
+          </Reveal>
         </div>
       </section>
 

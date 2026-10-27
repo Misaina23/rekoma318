@@ -114,11 +114,6 @@ export const fr = {
     zoneTitle: 'Zone d’intervention',
     zone:
       'Commune rurale de Midongy Atsimo, District de Midongy du Sud (318), Région Atsimo-Atsinanana, Madagascar.',
-    zoneItems: [
-      'Population cible : 5 000 à 8 000 habitants',
-      'Durée initiale du projet : 36 mois',
-      'Emplois directs projetés : 50 à 70',
-    ],
   },
   pdima: {
     title: 'Projet PDIMA',
@@ -548,11 +543,6 @@ export const en: typeof fr = {
     zoneTitle: 'Area of intervention',
     zone:
       'Rural commune of Midongy Atsimo, Midongy du Sud District (318), Atsimo-Atsinanana Region, Madagascar.',
-    zoneItems: [
-      'Target population: 5,000 to 8,000 inhabitants',
-      'Initial project duration: 36 months',
-      'Projected direct jobs: 50 to 70',
-    ],
   },
   pdima: {
     title: 'PDIMA Project',
