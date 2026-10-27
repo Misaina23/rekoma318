@@ -37,7 +37,7 @@ export default function HomePage() {
           <Reveal>
             <Link
               href="/articles"
-              className="group block border border-black/5 bg-[#e8e4da] p-2 shadow-[0_20px_60px_-40px_rgba(30,40,30,0.45)] md:p-3"
+              className="block overflow-hidden border border-black/5 bg-[#e8e4da] p-2 shadow-[0_20px_60px_-40px_rgba(30,40,30,0.45)] md:p-3"
               aria-label={t.home.storeCta}
             >
               <Image
@@ -47,7 +47,7 @@ export default function HomePage() {
                 height={843}
                 quality={95}
                 sizes="(min-width: 1024px) 58vw, 100vw"
-                className="h-auto w-full transition-transform duration-500 group-hover:scale-[1.01]"
+                className="h-auto w-full"
               />
             </Link>
             <div className="mt-3 flex items-center justify-between text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
