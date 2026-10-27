@@ -1,17 +1,4 @@
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'User' AND column_name = 'roleId'
-  ) THEN
-    ALTER TABLE "User" ADD COLUMN "roleId" VARCHAR(200);
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'User_roleId_fkey'
-  ) THEN
-    ALTER TABLE "User" ADD CONSTRAINT "User_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-  END IF;
-END $$;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "roleId" VARCHAR(200);
 CREATE TABLE IF NOT EXISTS "Role" (
   "id" VARCHAR(200) NOT NULL,
   "name" VARCHAR(200) NOT NULL UNIQUE,
@@ -55,3 +42,12 @@ CREATE INDEX IF NOT EXISTS "UserPermission_userId_idx" ON "UserPermission"("user
 CREATE INDEX IF NOT EXISTS "UserPermission_permissionId_idx" ON "UserPermission"("permissionId");
 ALTER TABLE "UserPermission" ADD CONSTRAINT "UserPermission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "UserPermission" ADD CONSTRAINT "UserPermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'User_roleId_fkey'
+  ) THEN
+    ALTER TABLE "User" ADD CONSTRAINT "User_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
