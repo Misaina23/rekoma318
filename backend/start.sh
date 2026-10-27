@@ -3,6 +3,10 @@ set -e
 
 # Run migrations on startup by default. Set MIGRATE=0 to skip.
 if [ "${MIGRATE:-1}" != "0" ]; then
+	# Resolve any previously failed migration records (P3009) before retrying
+	echo "==> Resolving any failed migration records"
+	npx prisma migrate resolve --rolled-back 20260814000100_rbac_granular 2>&1 || true
+
 	attempt=1
 	max_attempts=5
 	delay=2
@@ -23,6 +27,13 @@ if [ "${MIGRATE:-1}" != "0" ]; then
 						exit "$status"
 					fi
 					echo "==> Temporary database connection failure. Retrying in ${delay}s..." >&2
+					sleep "$delay"
+					delay=$((delay * 2))
+					attempt=$((attempt + 1))
+					;;
+				*P3009*|*P3018*)
+					echo "==> Failed migration record detected, attempting to resolve..." >&2
+					npx prisma migrate resolve --rolled-back 20260814000100_rbac_granular 2>&1 || true
 					sleep "$delay"
 					delay=$((delay * 2))
 					attempt=$((attempt + 1))
