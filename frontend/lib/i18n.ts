@@ -96,7 +96,7 @@ export const fr = {
     lead: 'Une association communautaire fondée sur la transparence, l’innovation et l’impact.',
     historyTitle: 'Histoire de REKOMA',
     history:
-      'REKOMA a été fondée en 2025 dans le cadre d’un effort collectif porté par des acteurs locaux engagés pour le développement de Midongy Atsimo. L’association accompagne aujourd’hui des initiatives sociales, économiques et éducatives au service de la commune.',
+      'REKOMA a été fondée en 2026 dans le cadre d’un effort collectif porté par des acteurs locaux engagés pour le développement de Midongy Atsimo. L’association accompagne aujourd’hui des initiatives sociales, économiques et éducatives au service de la commune.',
     missionTitle: 'Mission',
     mission:
       'Contribuer au développement socio-économique durable et inclusif de la commune rurale de Midongy Atsimo.',
@@ -323,7 +323,7 @@ export const fr = {
     items: [
       {
         q: 'Qu’est-ce que REKOMA ?',
-        a: 'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) est une association communautaire à but non lucratif située à Midongy Atsimo, Madagascar, créée en 2025.',
+        a: 'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) est une association communautaire à but non lucratif située à Midongy Atsimo, Madagascar, créée en 2026.',
       },
       {
         q: 'Quel est le projet principal ?',
@@ -525,7 +525,7 @@ export const en: typeof fr = {
     lead: 'A community association built on transparency, innovation and impact.',
     historyTitle: 'History of REKOMA',
     history:
-      'REKOMA was founded in 2025 as part of a collective effort led by local stakeholders committed to the development of Midongy Atsimo. The association now supports social, economic and educational initiatives for the benefit of the commune.',
+      'REKOMA was founded in 2026 as part of a collective effort led by local stakeholders committed to the development of Midongy Atsimo. The association now supports social, economic and educational initiatives for the benefit of the commune.',
     missionTitle: 'Mission',
     mission:
       'To contribute to the sustainable and inclusive socio-economic development of the rural commune of Midongy Atsimo.',
@@ -723,7 +723,7 @@ export const en: typeof fr = {
     items: [
       {
         q: 'What is REKOMA?',
-        a: 'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) is a non-profit community association based in Midongy Atsimo, Madagascar, created in 2025.',
+        a: 'REKOMA (Regroupement des Komarady Objectiviste de Midongy Atsimo) is a non-profit community association based in Midongy Atsimo, Madagascar, created in 2026.',
       },
       {
         q: 'What is the main project?',
