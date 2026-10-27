@@ -43,11 +43,11 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-border/60 glass">
-        <div className="container flex h-16 items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-md">
+        <div className="container flex h-[72px] items-center justify-between gap-4">
           <Logo priority />
 
-          <nav className="hidden items-center gap-1 xl:flex">
+          <nav className="hidden items-center gap-2 xl:flex">
             {links.map((l) => {
               const active = pathname === l.href
               return (
@@ -56,13 +56,13 @@ export function Header() {
                   href={l.href}
                   prefetch
                   className={cn(
-                    'relative rounded-full px-3.5 py-2 text-sm font-medium transition-colors',
+                    'relative px-2.5 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors',
                     active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   {String(l.label)}
                   {active && (
-                    <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary" />
+                    <span className="absolute inset-x-2.5 -bottom-px h-px bg-primary" />
                   )}
                 </Link>
               )
@@ -73,7 +73,7 @@ export function Header() {
             <button
               onClick={() => setSearchOpen(true)}
               aria-label="search"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/60 text-foreground transition-colors hover:bg-secondary"
+              className="flex h-10 w-10 items-center justify-center border border-border bg-transparent text-foreground transition-colors hover:bg-secondary"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -82,14 +82,14 @@ export function Header() {
             <Link
               href="/admin"
               prefetch
-              className="hidden h-10 items-center rounded-full bg-secondary px-4 text-sm font-medium transition-colors hover:bg-secondary/70 md:flex"
+              className="hidden h-10 items-center border border-border px-4 text-xs font-medium uppercase tracking-[0.1em] transition-colors hover:bg-secondary md:flex"
             >
               {t.nav.admin}
             </Link>
             <button
               onClick={() => setMobileOpen(true)}
               aria-label="menu"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background/60 text-foreground transition-colors hover:bg-secondary xl:hidden"
+              className="flex h-10 w-10 items-center justify-center border border-border bg-transparent text-foreground transition-colors hover:bg-secondary xl:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>

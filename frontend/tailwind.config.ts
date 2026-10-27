@@ -54,6 +54,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-manrope)', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        display: ['Georgia', 'Times New Roman', 'serif'],
       },
       keyframes: {
         'fade-up': {
