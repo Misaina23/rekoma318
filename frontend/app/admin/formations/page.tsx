@@ -9,7 +9,15 @@ import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { remoteFormations, remoteBeneficiaries } from '@/lib/server/remote'
+
+function getBrowserAuthHeaders(extra: Record<string, string> = {}) {
+  const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+  const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : null
+  return {
+    ...extra,
+    ...(valid ? { authorization: `Bearer ${valid}` } : {}),
+  }
+}
 
 type Formation = {
   id: string
@@ -48,11 +56,32 @@ export default function FormationsPage() {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') || undefined : undefined
-    const authHeader = token ? `Bearer ${token}` : undefined
-    const data = await remoteFormations.list(debouncedQ || undefined, status || undefined, undefined, undefined, String(page), authHeader).catch((e) => { console.error('remoteFormations.list failed', e); return { items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any })
-    setItems((data as any).items || [])
-    setTotalPages((data as any).totalPages || 1)
+    try {
+      const params = new URLSearchParams()
+      if (debouncedQ) params.set('q', debouncedQ)
+      if (status) params.set('status', status)
+      params.set('page', String(page))
+      const r = await fetch(`/api/admin/formations?${params.toString()}`, {
+        headers: getBrowserAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        console.error('GET /api/admin/formations failed', data)
+        return
+      }
+      const nextItems = Array.isArray(data.items) ? data.items : []
+      const nextTotalPages = Math.max(1, Number(data.totalPages) || 1)
+      if (nextItems.length === 0 && page > nextTotalPages) {
+        setPage(nextTotalPages)
+        return
+      }
+      setItems(nextItems)
+      setTotalPages(nextTotalPages)
+    } catch (e) {
+      console.error('load formations failed', e)
+    }
   }, [debouncedQ, status, page])
 
   useEffect(() => {
@@ -70,21 +99,23 @@ export default function FormationsPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
     try {
       const r = await fetch(`/api/admin/formations/${id}`, {
         method: 'DELETE',
-        headers: {
-          ...(token ? { authorization: `Bearer ${token}` } : {})
-        },
-        credentials: 'include'
+        headers: getBrowserAuthHeaders(),
+        credentials: 'include',
       })
       if (r.ok) {
-        toast((t.admin.delete || 'Supprimé') + ' ✓', 'success')
-        load()
+        setItems((prev) => prev.filter((item) => item.id !== id))
+        toast('Formation supprimée avec succès ✓', 'success')
+        if (items.length === 1 && page > 1) {
+          setPage((p) => Math.max(1, p - 1))
+        } else {
+          await load()
+        }
       } else {
         const d = await r.json().catch(() => ({}))
-        toast(d.message || d.error || t.admin.delete, 'error')
+        toast(d.message || d.error || 'Échec de la suppression de la formation', 'error')
       }
     } catch (e: any) {
       toast(e.message || 'Erreur lors de la suppression', 'error')
@@ -105,13 +136,9 @@ export default function FormationsPage() {
     if (!confirmed) return
 
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
       const r = await fetch(`/api/admin/formations/${formation.id}/certificates`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
-        },
+        headers: getBrowserAuthHeaders({ 'content-type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({}),
       })
@@ -126,7 +153,7 @@ export default function FormationsPage() {
         toast('Attestations générées ✓', 'success')
       } else {
         const d = await r.json().catch(() => ({}))
-        toast(d?.error || 'Erreur lors de la génération', 'error')
+        toast(d?.error || d?.message || 'Erreur lors de la génération', 'error')
       }
     } catch (e: any) {
       toast(e.message || 'Erreur', 'error')
@@ -229,12 +256,27 @@ function FormationForm({ formation, onClose, onSaved }: { formation: Formation |
   function set(k: string, v: any) { setForm((f) => ({ ...f, [k]: v })) }
 
   async function submit() {
+    if (!form.title.trim()) {
+      toast('Le titre de la formation est requis.', 'error')
+      return
+    }
     setSaving(true)
     const method = formation ? 'PATCH' : 'POST'
     const url = formation ? `/api/admin/formations/${formation.id}` : '/api/admin/formations'
-    const r = await fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(form), credentials: 'include' })
+    const r = await fetch(url, {
+      method,
+      headers: getBrowserAuthHeaders({ 'content-type': 'application/json' }),
+      body: JSON.stringify(form),
+      credentials: 'include',
+    })
+    const d = await r.json().catch(() => ({}))
     setSaving(false)
-    if (r.ok) { toast(t.admin.save + ' ✓', 'success'); onSaved() } else toast(t.admin.save, 'error')
+    if (r.ok) {
+      toast(t.admin.save + ' ✓', 'success')
+      onSaved()
+    } else {
+      toast(d.message || d.error || t.admin.save, 'error')
+    }
   }
 
   return (
@@ -301,8 +343,19 @@ function FormationBeneficiaries({ formation, onClose, onUpdated }: { formation: 
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const r = await fetch(`/api/admin/beneficiaries/${id}`, { method: 'DELETE', credentials: 'include' })
-    if (r.ok) { toast('Supprimé ✓', 'success'); setList((prev = []) => prev.filter((x) => x.id !== id)); onUpdated() } else toast(t.admin.delete, 'error')
+    const r = await fetch(`/api/admin/beneficiaries/${id}`, {
+      method: 'DELETE',
+      headers: getBrowserAuthHeaders(),
+      credentials: 'include',
+    })
+    if (r.ok) {
+      toast('Supprimé ✓', 'success')
+      setList((prev = []) => prev.filter((x) => x.id !== id))
+      onUpdated()
+    } else {
+      const d = await r.json().catch(() => ({}))
+      toast(d.message || d.error || t.admin.delete, 'error')
+    }
   }
 
   return (

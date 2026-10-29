@@ -3,23 +3,28 @@ import { requireAuth } from '@/lib/server/guard'
 import { remoteStore } from '@/lib/server/remote'
 import { readJson } from '@/lib/server/store'
 
-export async function GET(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_orders')
-  if (res) return res
+export const dynamic = 'force-dynamic'
 
-  const token = req.cookies.get('rekoma_access_token')?.value ||
-                req.cookies.get('rekoma_admin')?.value ||
-                req.headers.get('authorization')?.replace('Bearer ', '').trim()
+export async function GET(req: NextRequest) {
+  const { res, authHeader } = requireAuth(req, 'manage_orders')
+  if (res) return res
 
   const localOrders = await readJson<any[]>('orders.json', [])
   let remoteOrders: any[] = []
 
   try {
-    const data = await remoteStore.orders(token ? `Bearer ${token}` : undefined)
+    const data = await remoteStore.orders(authHeader)
     if (data && Array.isArray(data.orders)) {
       remoteOrders = data.orders
     }
   } catch (error: any) {
+    const status = Number(error?.status) || 0
+    if (status === 401 || status === 403) {
+      return NextResponse.json(
+        { message: error?.message || 'Accès refusé aux commandes sur le serveur.' },
+        { status }
+      )
+    }
     console.warn('remoteStore.orders failed, falling back to local orders:', error.message)
   }
 
@@ -38,5 +43,8 @@ export async function GET(req: NextRequest) {
     (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
   )
 
-  return NextResponse.json({ orders: merged })
+  return NextResponse.json(
+    { orders: merged },
+    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+  )
 }

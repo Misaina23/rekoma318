@@ -3,6 +3,7 @@ import { remoteMembers } from '@/lib/server/remote'
 import { readJson } from '@/lib/server/store'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 const FOUNDATIONAL_BUREAU = [
   {
@@ -114,7 +115,7 @@ export async function GET() {
     const remoteData = await remoteMembers.public()
     if (Array.isArray(remoteData)) {
       for (const m of remoteData) {
-        if (m && m.id && m.status !== 'inactive') {
+        if (m && m.id && m.status !== 'inactive' && !m.deletedAt) {
           memberMap.set(m.id, m)
         }
       }
@@ -127,7 +128,7 @@ export async function GET() {
   try {
     const local = await readJson<any[]>('members.json', [])
     for (const m of local) {
-      if (m && m.id && m.status !== 'inactive') {
+      if (m && m.id && m.status !== 'inactive' && !m.deletedAt) {
         const existingKey = Array.from(memberMap.keys()).find((k) => {
           const it = memberMap.get(k)
           return (
@@ -156,5 +157,7 @@ export async function GET() {
     (a, b) => (Number(a.displayOrder) || 999) - (Number(b.displayOrder) || 999) || String(a.lastName || '').localeCompare(String(b.lastName || ''))
   )
 
-  return NextResponse.json(result)
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+  })
 }

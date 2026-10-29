@@ -109,6 +109,30 @@ export default function ArticlesPage() {
           }
           return next
         })
+
+        // Reconcile persisted basket with currently available catalogue products
+        if (items.length > 0) {
+          const validIds = new Set(items.map((it: Product) => it.id))
+          setBasket((prev) =>
+            prev
+              .filter((line) => line && typeof line.productId === 'string' && validIds.has(line.productId))
+              .map((line) => {
+                const prod = items.find((it: Product) => it.id === line.productId)
+                const prodSizes = Array.isArray(prod?.sizes) ? prod.sizes : []
+                const resolvedSize =
+                  prodSizes.length === 0
+                    ? ''
+                    : prodSizes.includes(line.size)
+                      ? line.size
+                      : prodSizes[0]
+                return {
+                  productId: line.productId,
+                  quantity: Math.max(1, Math.min(MAX_ITEM_QUANTITY, Math.trunc(Number(line.quantity) || 1))),
+                  size: resolvedSize,
+                }
+              })
+          )
+        }
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false))
@@ -209,25 +233,33 @@ export default function ArticlesPage() {
     }
     setSubmitting(true)
     try {
+      const validLines = basket.filter((line) => products.some((p) => p.id === line.productId))
+      if (!validLines.length) {
+        setBasket([])
+        toast('Les articles de votre panier ne sont plus disponibles. Veuillez les sélectionner à nouveau.', 'error')
+        setSubmitting(false)
+        return
+      }
+
       const response = await fetch('/api/store/orders', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          items: basket.map((line) => {
+          items: validLines.map((line) => {
             const prod = products.find((p) => p.id === line.productId)
             return {
               productId: line.productId,
               name: prod?.name || line.productId,
               unitPrice: prod?.price || 0,
-              quantity: line.quantity,
-              size: line.size || null,
+              quantity: Math.max(1, Math.min(MAX_ITEM_QUANTITY, Math.trunc(Number(line.quantity) || 1))),
+              size: line.size ? String(line.size).trim() : '',
             }
           }),
         }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Impossible d’enregistrer la demande.')
+      if (!response.ok) throw new Error(data.message || data.error || 'Impossible d’enregistrer la demande.')
 
       const order = data.order
       const orderLines = (order.items as Array<{ name: string; quantity: number; unitPrice: number; size: string | null }>)

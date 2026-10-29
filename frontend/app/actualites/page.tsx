@@ -16,9 +16,12 @@ export default function ActualitesPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/cms/news')
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => { setItems(Array.isArray(data) ? data : []) })
+    fetch('/api/cms/news', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
+        setItems(list)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])

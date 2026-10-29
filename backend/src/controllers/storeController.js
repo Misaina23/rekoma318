@@ -54,15 +54,150 @@ function validateProductInput(body, partial = false) {
   return { data }
 }
 
+const DEFAULT_STORE_PRODUCTS = [
+  {
+    id: 'store-teddy',
+    slug: 'blouson-teddy',
+    name: 'Blouson Teddy REKOMA',
+    description: 'Blouson collector de haute qualité aux finitions soignées, brodé aux couleurs de REKOMA Midongy Atsimo.',
+    price: 60000,
+    imageUrl: '/ARTICLE/BLOUSON TEDDY 2.jpg',
+    sizes: ['M', 'L', 'XL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-hoodie',
+    slug: 'sweat-capuche',
+    name: 'Sweat à capuche REKOMA',
+    description: 'Sweat à capuche chaud et confortable en molleton épais avec cordons ajustables et logo officiel.',
+    price: 55000,
+    imageUrl: '/ARTICLE/SWEAT A CAPUCHE.jpg',
+    sizes: ['S', 'M', 'L', 'XL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-doudoune',
+    slug: 'doudoune-rekoma',
+    name: 'Doudoune sans manche REKOMA',
+    description: 'Doudoune matelassée sans manche légère et isolante, idéale pour le terrain et la mi-saison.',
+    price: 45000,
+    imageUrl: '/ARTICLE/DOUDONE SANS MANCHE.jpg',
+    sizes: ['M', 'L', 'XL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-polo',
+    slug: 'polo-rekoma',
+    name: 'Polo officiel REKOMA',
+    description: 'Polo piqué 100% coton peigné, col boutonné renforcé et écusson brodé REKOMA.',
+    price: 35000,
+    imageUrl: '/ARTICLE/POLO.jpg',
+    sizes: ['S', 'M', 'L', 'XL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-tee',
+    slug: 'tee-shirt-rekoma',
+    name: 'T-shirt classique REKOMA',
+    description: 'T-shirt en coton peigné durable et respirant avec sérigraphie haute résistance.',
+    price: 25000,
+    imageUrl: '/ARTICLE/TEE SHIRT.jpg',
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-oversize',
+    slug: 'tee-shirt-oversize',
+    name: 'T-shirt oversize streetwear REKOMA',
+    description: 'Coupe ample oversize moderne aux couleurs et emblèmes de Midongy 318.',
+    price: 45000,
+    imageUrl: '/ARTICLE/TEE SHRT 2.jpg',
+    sizes: ['M', 'L', 'XL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-salova',
+    slug: 'salova-rekoma',
+    name: 'Salova traditionnel malagasy',
+    description: 'Tenue traditionnelle malagasy d’honneur aux motifs culturels régionaux de l’Atsimo-Atsinanana.',
+    price: 30000,
+    imageUrl: '/ARTICLE/tenu tradutionnel malagasy, SALOVA.jpg',
+    sizes: [],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-cap',
+    slug: 'casquette-rekoma',
+    name: 'Casquette brodée REKOMA',
+    description: 'Casquette 6 panneaux avec visière profilée et fermeture arrière ajustable en laiton.',
+    price: 15000,
+    imageUrl: '/ARTICLE/CASQUETTE.jpg',
+    sizes: [],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-tank',
+    slug: 'debardeur-rekoma',
+    name: 'Débardeur sport REKOMA',
+    description: 'Débardeur respirant et confortable pour le sport et les activités de plein air.',
+    price: 25000,
+    imageUrl: '/ARTICLE/DEBARDEUR.jpg',
+    sizes: ['S', 'M', 'L', 'XL'],
+    published: true,
+    active: true,
+  },
+  {
+    id: 'store-peluche',
+    slug: 'peluche-rekoma',
+    name: 'Peluche mascotte REKOMA',
+    description: 'Peluche douce collector en soutien direct aux actions de développement communautaire.',
+    price: 20000,
+    imageUrl: '/ARTICLE/PELLUCHE.jpg',
+    sizes: [],
+    published: true,
+    active: true,
+  },
+]
+
+async function ensureDefaultCatalogue() {
+  try {
+    for (const def of DEFAULT_STORE_PRODUCTS) {
+      const existing = await prisma.storeProduct.findFirst({
+        where: { OR: [{ id: def.id }, { slug: def.slug }] },
+      })
+      if (!existing) {
+        await prisma.storeProduct.create({ data: def }).catch(() => null)
+      } else if ((!Array.isArray(existing.sizes) || existing.sizes.length === 0) && def.sizes.length > 0) {
+        await prisma.storeProduct.update({
+          where: { id: existing.id },
+          data: { sizes: def.sizes },
+        }).catch(() => null)
+      }
+    }
+  } catch {
+    // Ignore when running against read-only / mock DB
+  }
+}
+
 export async function listProducts(_req, res) {
+  await ensureDefaultCatalogue()
   const items = await prisma.storeProduct.findMany({
     where: { published: true, active: true },
     orderBy: { createdAt: 'asc' },
   })
-  res.json({ items })
+  res.json({ items: items.length > 0 ? items : DEFAULT_STORE_PRODUCTS })
 }
 
 export async function listProductsForAdmin(_req, res) {
+  await ensureDefaultCatalogue()
   const items = await prisma.storeProduct.findMany({ orderBy: { createdAt: 'asc' } })
   res.json({ items })
 }
@@ -104,45 +239,86 @@ export async function createOrder(req, res) {
 
   const selections = new Map()
   for (const entry of requestedItems) {
-    if (!entry || typeof entry.productId !== 'string' || !Number.isInteger(entry.quantity) || entry.quantity < 1 || entry.quantity > 10) {
+    const rawProductId = typeof entry?.productId === 'string' ? entry.productId.trim() : ''
+    const qty = Number(entry?.quantity)
+    if (!rawProductId || !Number.isInteger(qty) || qty < 1 || qty > 10) {
       return res.status(400).json({ success: false, error: 'Un article ou une quantité est invalide.' })
     }
     const size = typeof entry.size === 'string' ? entry.size.trim().slice(0, 20) : ''
-    const key = `${entry.productId}\u0000${size}`
+    const key = `${rawProductId}\u0000${size}`
     const current = selections.get(key)
     if (current) {
-      current.quantity += entry.quantity
+      current.quantity += qty
       if (current.quantity > 10) return res.status(400).json({ success: false, error: 'La quantité maximale par article est de 10.' })
     } else {
-      selections.set(key, { productId: entry.productId, quantity: entry.quantity, size })
+      selections.set(key, { productId: rawProductId, quantity: qty, size })
     }
   }
 
-  const productIds = [...new Set([...selections.values()].map((selection) => selection.productId))]
-  const products = await prisma.storeProduct.findMany({
-    where: { id: { in: productIds }, published: true, active: true },
-  })
-  if (products.length !== productIds.length) {
-    return res.status(400).json({ success: false, error: 'Un article n’est plus disponible. Actualise le catalogue et réessaie.' })
+  const requestedKeys = [...new Set([...selections.values()].map((selection) => selection.productId))]
+
+  // Ensure any default catalogue item ordered by ID or slug exists in StoreProduct
+  for (const reqKey of requestedKeys) {
+    const def = DEFAULT_STORE_PRODUCTS.find((p) => p.id === reqKey || p.slug === reqKey)
+    if (def) {
+      const exists = await prisma.storeProduct.findFirst({
+        where: { OR: [{ id: def.id }, { slug: def.slug }] },
+      }).catch(() => null)
+      if (!exists) {
+        await prisma.storeProduct.create({ data: def }).catch(() => null)
+      }
+    }
   }
 
-  const productById = new Map(products.map((product) => [product.id, product]))
+  const products = await prisma.storeProduct.findMany({
+    where: {
+      OR: [{ id: { in: requestedKeys } }, { slug: { in: requestedKeys } }],
+      published: true,
+      active: true,
+    },
+  })
+
+  const productLookup = new Map()
+  for (const product of products) {
+    productLookup.set(product.id, product)
+    if (product.slug) productLookup.set(product.slug, product)
+  }
+
+  // Fallback to DEFAULT_STORE_PRODUCTS metadata if DB is empty/mocked
+  for (const reqKey of requestedKeys) {
+    if (!productLookup.has(reqKey)) {
+      const def = DEFAULT_STORE_PRODUCTS.find((p) => p.id === reqKey || p.slug === reqKey)
+      if (def) {
+        productLookup.set(def.id, def)
+        productLookup.set(def.slug, def)
+      }
+    }
+  }
+
   const items = []
   for (const selection of selections.values()) {
-    const product = productById.get(selection.productId)
-    if (!product) return res.status(400).json({ success: false, error: 'Un article n’est plus disponible.' })
-    if (product.sizes.length && !selection.size) {
-      return res.status(400).json({ success: false, error: `Choisis une taille pour ${product.name}.` })
+    const product = productLookup.get(selection.productId)
+    if (!product) {
+      return res.status(400).json({ success: false, error: 'Un article commandé est introuvable ou indisponible. Actualise le catalogue et réessaie.' })
     }
-    if (selection.size && product.sizes.length && !product.sizes.includes(selection.size)) {
-      return res.status(400).json({ success: false, error: `La taille sélectionnée n’est pas disponible pour ${product.name}.` })
+    const availableSizes = Array.isArray(product.sizes) ? product.sizes : []
+    let normalizedSize = selection.size
+    if (availableSizes.length > 0) {
+      if (!normalizedSize) {
+        return res.status(400).json({ success: false, error: `Choisis une taille pour ${product.name}.` })
+      }
+      const matched = availableSizes.find((s) => s.toLowerCase() === normalizedSize.toLowerCase())
+      if (!matched) {
+        return res.status(400).json({ success: false, error: `La taille "${normalizedSize}" n’est pas disponible pour ${product.name}.` })
+      }
+      normalizedSize = matched
     }
     items.push({
       productId: product.id,
       name: product.name,
       unitPrice: product.price,
       quantity: selection.quantity,
-      size: selection.size || null,
+      size: normalizedSize || null,
     })
   }
   const total = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)

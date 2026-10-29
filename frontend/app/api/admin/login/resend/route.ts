@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { API } from '@/lib/server/remote'
 
 export async function POST(req: NextRequest) {
+  const isSecure = req.headers.get('x-forwarded-proto') === 'https' || req.nextUrl.protocol === 'https:'
+  const sameSite: 'none' | 'lax' = isSecure ? 'none' : 'lax'
   const pendingCookie = req.cookies.get('rekoma_2fa_pending')?.value || req.cookies.get('rekoma_admin')?.value
   const body = await req.json().catch(() => ({}))
 
@@ -30,14 +32,16 @@ export async function POST(req: NextRequest) {
       const res = NextResponse.json({
         ok: true,
         sessionId: data.sessionId,
-        message: data.message || 'Nouveau code envoyé',
+        message: data.message || 'Nouveau code envoyé par email',
         emailSent: data.emailSent,
+        emailError: data.emailError || null,
       })
       if (pendingData) {
         pendingData.sessionId = data.sessionId
         res.cookies.set('rekoma_2fa_pending', Buffer.from(JSON.stringify(pendingData)).toString('base64'), {
           httpOnly: true,
-          sameSite: 'lax',
+          sameSite,
+          secure: isSecure,
           path: '/',
           maxAge: 10 * 60,
         })
@@ -62,7 +66,8 @@ export async function POST(req: NextRequest) {
     pendingData.sessionId = newSessionId
     res.cookies.set('rekoma_2fa_pending', Buffer.from(JSON.stringify(pendingData)).toString('base64'), {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite,
+      secure: isSecure,
       path: '/',
       maxAge: 10 * 60,
     })

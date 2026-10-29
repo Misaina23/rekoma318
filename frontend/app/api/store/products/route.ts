@@ -110,7 +110,38 @@ export async function GET() {
   try {
     const remoteData = await remoteStore.products()
     if (remoteData?.items && remoteData.items.length > 0) {
-      return NextResponse.json(remoteData)
+      const byKey = new Map<string, any>()
+      for (const def of DEFAULT_PRODUCTS) {
+        byKey.set(def.id, def)
+        byKey.set(def.slug, def)
+      }
+
+      const seenIds = new Set<string>()
+      const seenSlugs = new Set<string>()
+      const enriched = remoteData.items.map((item: any) => {
+        if (item.id) seenIds.add(item.id)
+        if (item.slug) seenSlugs.add(item.slug)
+        const def = byKey.get(item.id) || byKey.get(item.slug)
+        const hasSizes = Array.isArray(item.sizes) && item.sizes.length > 0
+        return {
+          ...item,
+          sizes: hasSizes ? item.sizes : def?.sizes || [],
+          category: item.category || def?.category || 'Articles',
+          description: item.description || def?.description || '',
+          imageUrl: item.imageUrl || def?.imageUrl || null,
+        }
+      })
+
+      for (const def of DEFAULT_PRODUCTS) {
+        if (!seenIds.has(def.id) && !seenSlugs.has(def.slug)) {
+          enriched.push(def)
+        }
+      }
+
+      return NextResponse.json(
+        { items: enriched },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+      )
     }
     return NextResponse.json({ items: DEFAULT_PRODUCTS })
   } catch (error) {

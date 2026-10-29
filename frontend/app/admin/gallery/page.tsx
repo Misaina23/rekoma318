@@ -35,18 +35,26 @@ export default function GalleryAdminPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    await remoteCms.deleteGalleryEvent(id)
-    toast('Événement supprimé ✓', 'success')
-    load()
+    try {
+      await remoteCms.deleteGalleryEvent(id)
+      toast('Événement supprimé ✓', 'success')
+      load()
+    } catch (e: any) {
+      toast(e?.message || 'Erreur lors de la suppression', 'error')
+    }
   }
 
   async function addPhoto() {
     if (!photoEventId || !photoUrl) return
-    await remoteCms.addGalleryPhoto(photoEventId, photoUrl)
-    setPhotoUrl('')
-    setPhotoEventId(null)
-    toast('Photo ajoutée ✓', 'success')
-    load()
+    try {
+      await remoteCms.addGalleryPhoto(photoEventId, photoUrl)
+      setPhotoUrl('')
+      setPhotoEventId(null)
+      toast('Photo ajoutée ✓', 'success')
+      load()
+    } catch (e: any) {
+      toast(e?.message || 'Erreur lors de l’ajout de la photo', 'error')
+    }
   }
 
   return (

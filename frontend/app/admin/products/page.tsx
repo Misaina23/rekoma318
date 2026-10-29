@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Pencil, Plus, ShoppingBag } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
-import { useToast } from '@/components/ui/toast'
+import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -34,11 +34,24 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  function buildAuthHeaders(extra: Record<string, string> = {}) {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : null
+    return {
+      ...extra,
+      ...(valid ? { authorization: `Bearer ${valid}` } : {}),
+    }
+  }
+
   async function load() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/admin/products')
+      const response = await fetch('/api/admin/products', {
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
+      })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Impossible de charger les articles.')
       setProducts(data.items || [])
@@ -71,7 +84,8 @@ export default function AdminProductsPage() {
     try {
       const response = await fetch(editing ? `/api/admin/products/${editing.id}` : '/api/admin/products', {
         method: editing ? 'PATCH' : 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: buildAuthHeaders({ 'content-type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify({
           ...form,
           price: Number(form.price),
@@ -94,9 +108,13 @@ export default function AdminProductsPage() {
   }
 
   async function hide(product: Product) {
-    if (!window.confirm(`Masquer « ${product.name} » de la boutique ?`)) return
+    if (!(await confirmDialog(`Masquer « ${product.name} » de la boutique ?`))) return
     try {
-      const response = await fetch(`/api/admin/products/${product.id}`, { method: 'DELETE' })
+      const response = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'DELETE',
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+      })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Impossible de masquer l’article.')
       toast('Article masqué.', 'success')

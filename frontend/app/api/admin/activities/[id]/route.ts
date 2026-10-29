@@ -3,10 +3,8 @@ import { requireAuth } from '@/lib/server/guard'
 import { remoteActivities } from '@/lib/server/remote'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { res } = requireAuth(req, 'manage_activities')
+  const { res, authHeader } = requireAuth(req, 'manage_activities')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   const body = await req.json().catch(() => null)
   try {
     return NextResponse.json(await remoteActivities.update(params.id, body, authHeader))
@@ -16,10 +14,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const { res } = requireAuth(req, 'manage_activities')
+  const { res, authHeader } = requireAuth(req, 'manage_activities')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   try {
     await remoteActivities.remove(params.id, authHeader)
     return NextResponse.json({ ok: true })

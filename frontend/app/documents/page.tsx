@@ -20,13 +20,15 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/cms/documents').then((r) => r.ok ? r.json() : []),
-      fetch('/api/cms/gallery').then((r) => r.ok ? r.json() : []),
+      fetch('/api/cms/documents', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])),
+      fetch('/api/cms/gallery', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([docs, gallery]) => {
-        setDocuments(docs || [])
-        const photos = (gallery || []).flatMap((e: any) => (e.photos || []).map((p: any) => ({ ...p, event: e.title })))
-        setPhotos(photos)
+      .then(([docsRaw, galleryRaw]) => {
+        const docsList = Array.isArray(docsRaw) ? docsRaw : Array.isArray(docsRaw?.items) ? docsRaw.items : []
+        const galleryList = Array.isArray(galleryRaw) ? galleryRaw : Array.isArray(galleryRaw?.items) ? galleryRaw.items : []
+        setDocuments(docsList)
+        const flatPhotos = galleryList.flatMap((e: any) => (e.photos || []).map((p: any) => ({ ...p, event: e.title })))
+        setPhotos(flatPhotos)
       })
       .catch(() => {})
       .finally(() => setLoading(false))

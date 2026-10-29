@@ -1,30 +1,44 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteMembers } from '@/lib/server/remote'
 import { readJson, writeJson } from '@/lib/server/store'
 
-function getAuthHeader(req: NextRequest): string | undefined {
-  const token = req.cookies.get('rekoma_access_token')?.value || req.headers.get('authorization')?.replace('Bearer ', '').trim()
-  return token ? `Bearer ${token}` : undefined
-}
+export const dynamic = 'force-dynamic'
 
 async function handleUpdate(req: NextRequest, params: { id: string }) {
-  const { res } = requireAuth(req, 'manage_members')
+  const { res, authHeader } = requireAuth(req, 'manage_members')
   if (res) return res
-  const authHeader = getAuthHeader(req)
+
   const body = await req.json().catch(() => null)
-  let updatedItem = null
-  try {
-    updatedItem = await remoteMembers.update(params.id, body, authHeader)
-  } catch (e: any) {
-    console.warn('remoteMembers.update remote error:', e.message)
-  }
+  if (!body) return NextResponse.json({ message: 'Données invalides.' }, { status: 400 })
 
   const list = await readJson<any[]>('members.json', [])
-  const existing = list.find((m) => m.id === params.id)
-  const merged = updatedItem || { ...(existing || {}), ...body, id: params.id }
-  await writeJson('members.json', list.map((m) => (m.id === params.id ? merged : m)))
-  return NextResponse.json(merged)
+  const existingLocal = list.find((m) => m.id === params.id)
+
+  try {
+    const response = await remoteMembers.update(params.id, body, authHeader)
+    const updatedItem = response?.item || response
+    if (existingLocal) {
+      await writeJson('members.json', list.map((m) => (m.id === params.id ? updatedItem : m)))
+    }
+    revalidatePath('/gouvernance')
+    revalidatePath('/api/members/public')
+    return NextResponse.json(updatedItem)
+  } catch (e: any) {
+    const status = Number(e?.status) || 500
+    if (!existingLocal || status === 401 || status === 403) {
+      return NextResponse.json(
+        { message: e.message || 'Impossible de modifier ce membre.' },
+        { status }
+      )
+    }
+    const merged = { ...existingLocal, ...body, id: params.id }
+    await writeJson('members.json', list.map((m) => (m.id === params.id ? merged : m)))
+    revalidatePath('/gouvernance')
+    revalidatePath('/api/members/public')
+    return NextResponse.json(merged)
+  }
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
@@ -36,15 +50,31 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const { res } = requireAuth(req, 'manage_members')
+  const { res, authHeader } = requireAuth(req, 'manage_members')
   if (res) return res
-  const authHeader = getAuthHeader(req)
+
+  const list = await readJson<any[]>('members.json', [])
+  const existedLocally = list.some((m) => m.id === params.id)
+
   try {
     await remoteMembers.remove(params.id, authHeader)
+    if (existedLocally) {
+      await writeJson('members.json', list.filter((m) => m.id !== params.id))
+    }
+    revalidatePath('/gouvernance')
+    revalidatePath('/api/members/public')
+    return NextResponse.json({ ok: true })
   } catch (e: any) {
-    console.warn('remoteMembers.remove remote error:', e.message)
+    const status = Number(e?.status) || 500
+    if (existedLocally && status === 404) {
+      await writeJson('members.json', list.filter((m) => m.id !== params.id))
+      revalidatePath('/gouvernance')
+      revalidatePath('/api/members/public')
+      return NextResponse.json({ ok: true })
+    }
+    return NextResponse.json(
+      { message: e.message || 'Impossible de supprimer ce membre.' },
+      { status }
+    )
   }
-  const list = await readJson<any[]>('members.json', [])
-  await writeJson('members.json', list.filter((m) => m.id !== params.id))
-  return NextResponse.json({ ok: true })
 }

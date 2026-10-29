@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteActivities } from '@/lib/server/remote'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_activities')
+  const { res, authHeader } = requireAuth(req, 'manage_activities')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   const q = req.nextUrl.searchParams.get('q') || undefined
   const status = req.nextUrl.searchParams.get('status') || undefined
   const page = req.nextUrl.searchParams.get('page') || undefined
@@ -18,10 +18,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_activities')
+  const { res, authHeader } = requireAuth(req, 'manage_activities')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   const body = await req.json().catch(() => null)
   if (!body?.title) return NextResponse.json({ message: 'Titre requis' }, { status: 400 })
   try {

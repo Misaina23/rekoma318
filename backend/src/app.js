@@ -1,10 +1,10 @@
+import 'dotenv/config'
 import express from 'express'
 import cookieParser from 'cookie-parser'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
-import dotenv from 'dotenv'
 import createError from 'http-errors'
 import 'express-async-errors'
 
@@ -22,9 +22,28 @@ import stripeRoutes from './routes/stripe.js'
 import rolesRoutes from './routes/roles.js'
 import storeRoutes from './routes/store.js'
 
-dotenv.config()
-
 const app = express()
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true
+  const normalized = origin.replace(/\/+$/, '')
+  const configured = [process.env.CORS_ORIGIN, process.env.FRONTEND_URL]
+    .filter(Boolean)
+    .flatMap((v) => String(v).split(','))
+    .map((v) => v.trim().replace(/\/+$/, ''))
+    .filter(Boolean)
+
+  if (
+    normalized === 'http://localhost:3000' ||
+    normalized === 'http://127.0.0.1:3000' ||
+    configured.includes(normalized) ||
+    normalized.endsWith('.vercel.app') ||
+    normalized.endsWith('.run.app')
+  ) {
+    return true
+  }
+  return false
+}
 
 app.use(helmet())
 app.use(compression())
@@ -34,8 +53,7 @@ app.use(morgan('dev'))
 app.use(
   cors({
     origin: (origin, cb) => {
-      const allowed = process.env.CORS_ORIGIN
-      if (!origin || origin === 'http://localhost:3000' || origin === allowed) {
+      if (isAllowedOrigin(origin)) {
         cb(null, true)
       } else {
         cb(new Error('CORS: origin not allowed'))

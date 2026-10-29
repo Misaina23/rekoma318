@@ -1,29 +1,39 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
-import { remoteFormations } from '@/lib/server/remote'
+import { API, remoteFormations } from '@/lib/server/remote'
 import { readJson, writeJson } from '@/lib/server/store'
 
-function getAuthHeader(req: NextRequest): string | undefined {
-  const token = req.cookies.get('rekoma_access_token')?.value || req.headers.get('authorization')?.replace('Bearer ', '').trim()
-  return token ? `Bearer ${token}` : undefined
-}
+export const dynamic = 'force-dynamic'
 
 async function handleUpdate(req: NextRequest, params: { id: string }) {
-  const { res } = requireAuth(req, 'manage_formations')
+  const { res, authHeader } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const authHeader = getAuthHeader(req)
+
   const body = await req.json().catch(() => null)
-  let updated = null
-  try {
-    updated = await remoteFormations.update(params.id, body, authHeader)
-  } catch (e: any) {
-    console.warn('remoteFormations.update error:', e.message)
-  }
+  if (!body) return NextResponse.json({ message: 'Données invalides.' }, { status: 400 })
+
   const list = await readJson<any[]>('formations.json', [])
-  const existing = list.find((f) => f.id === params.id)
-  const merged = updated || { ...(existing || {}), ...body, id: params.id }
-  await writeJson('formations.json', list.map((f) => (f.id === params.id ? merged : f)))
-  return NextResponse.json(merged)
+  const existingLocal = list.find((f) => f.id === params.id)
+
+  try {
+    const response = await remoteFormations.update(params.id, body, authHeader)
+    const updated = response?.item || response
+    if (existingLocal) {
+      await writeJson('formations.json', list.map((f) => (f.id === params.id ? updated : f)))
+    }
+    return NextResponse.json(updated)
+  } catch (e: any) {
+    const status = Number(e?.status) || 500
+    if (!existingLocal || status === 401 || status === 403) {
+      return NextResponse.json(
+        { message: e.message || 'Impossible de modifier la formation.' },
+        { status }
+      )
+    }
+    const merged = { ...existingLocal, ...body, id: params.id }
+    await writeJson('formations.json', list.map((f) => (f.id === params.id ? merged : f)))
+    return NextResponse.json(merged)
+  }
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
@@ -35,26 +45,38 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const { res } = requireAuth(req, 'manage_formations')
+  const { res, authHeader } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const authHeader = getAuthHeader(req)
+
+  const list = await readJson<any[]>('formations.json', [])
+  const existedLocally = list.some((f) => f.id === params.id)
+
   try {
     await remoteFormations.remove(params.id, authHeader)
+    if (existedLocally) {
+      await writeJson('formations.json', list.filter((f) => f.id !== params.id))
+    }
+    return NextResponse.json({ ok: true, id: params.id })
   } catch (e: any) {
-    console.warn('remoteFormations.remove failed, deleting from local store:', e.message)
+    const status = Number(e?.status) || 500
+    // If it was a local-only formation (404 on backend), remove from local JSON cleanly
+    if (existedLocally && status === 404) {
+      await writeJson('formations.json', list.filter((f) => f.id !== params.id))
+      return NextResponse.json({ ok: true, id: params.id })
+    }
+    console.error('remoteFormations.remove failed:', e.message)
+    return NextResponse.json(
+      { message: e.message || 'Échec de la suppression de la formation en base de données.' },
+      { status }
+    )
   }
-  const list = await readJson<any[]>('formations.json', [])
-  await writeJson('formations.json', list.filter((f) => f.id !== params.id))
-  return NextResponse.json({ ok: true })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { res } = requireAuth(req, 'manage_formations')
+  const { res, authHeader } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   try {
-    const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'}/api/cms/formations/${params.id}/certificates`, {
+    const r = await fetch(`${API}/api/cms/formations/${params.id}/certificates`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -75,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       })
     }
     const d = await r.json().catch(() => ({}))
-    return NextResponse.json({ message: d.error || 'Erreur' }, { status: r.status || 500 })
+    return NextResponse.json({ message: d.error || 'Erreur lors de la génération des attestations' }, { status: r.status || 500 })
   } catch (e: any) {
     return NextResponse.json({ message: e.message }, { status: 500 })
   }

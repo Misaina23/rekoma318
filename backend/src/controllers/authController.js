@@ -1,12 +1,10 @@
-import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
+import { prisma } from '../lib/prisma.js'
 import { welcomeEmail, passwordResetEmail, emailVerificationEmail } from '../utils/mail.js'
 import { rateLimit } from '../middleware/rateLimiter.js'
 import { emailVerifiedEnabled, resolveUserFromToken } from '../middleware/authMiddleware.js'
-
-const prisma = new PrismaClient()
 
 const JWT_SECRET = process.env.JWT_SECRET?.trim() || process.env.ADMIN_SESSION_SECRET?.trim() || 'rekoma-jwt-secret-default-key-2026'
 
@@ -140,27 +138,34 @@ export async function login(req, res) {
   await prisma.refreshToken.create({ data: { token: refreshTokenValue, userId: user.id, expiresAt } })
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
 
+  const isProd = process.env.NODE_ENV === 'production'
   const cookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   }
   res.cookie('refreshToken', refreshTokenValue, cookieOpts)
   const accessCookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
-    maxAge: 15 * 60 * 1000,
+    maxAge: 8 * 60 * 60 * 1000,
   }
   res.cookie('accessToken', accessToken, accessCookieOpts)
-  res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, name: user.name } })
+  res.json({
+    success: true,
+    requiresTwoFactor: false,
+    accessToken,
+    refreshToken: refreshTokenValue,
+    user: { id: user.id, email: user.email, role: user.role, name: user.name },
+  })
 }
 
 export async function refreshToken(req, res) {
-  const rt = req.cookies?.refreshToken
+  const rt = req.cookies?.refreshToken || req.body?.refreshToken
   if (!rt) return res.status(401).json({ success: false, error: 'No refresh token' })
 
   const tokenRecord = await prisma.refreshToken.findUnique({ where: { token: rt }, include: { user: true } })
@@ -175,23 +180,34 @@ export async function refreshToken(req, res) {
   await prisma.refreshToken.create({ data: { token: newRtValue, userId: tokenRecord.userId, expiresAt } })
 
   const accessToken = createAccessToken(tokenRecord.user)
+  const isProd = process.env.NODE_ENV === 'production'
   const cookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   }
   res.cookie('refreshToken', newRtValue, cookieOpts)
   const accessCookieOpts = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
     path: '/',
-    maxAge: 15 * 60 * 1000,
+    maxAge: 8 * 60 * 60 * 1000,
   }
   res.cookie('accessToken', accessToken, accessCookieOpts)
-  res.json({ success: true })
+  res.json({
+    success: true,
+    accessToken,
+    refreshToken: newRtValue,
+    user: {
+      id: tokenRecord.user.id,
+      email: tokenRecord.user.email,
+      role: tokenRecord.user.role,
+      name: tokenRecord.user.name,
+    },
+  })
 }
 
 export async function logout(req, res) {

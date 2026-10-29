@@ -4,15 +4,12 @@ import { remoteFormations } from '@/lib/server/remote'
 import { readJson, writeJson } from '@/lib/server/store'
 import crypto from 'crypto'
 
-function getAuthHeader(req: NextRequest): string | undefined {
-  const token = req.cookies.get('rekoma_access_token')?.value || req.headers.get('authorization')?.replace('Bearer ', '').trim()
-  return token ? `Bearer ${token}` : undefined
-}
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_formations')
+  const { res, authHeader } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const authHeader = getAuthHeader(req)
+
   const q = req.nextUrl.searchParams.get('q') || undefined
   const status = req.nextUrl.searchParams.get('status') || undefined
   const from = req.nextUrl.searchParams.get('from') || undefined
@@ -21,8 +18,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const data = await remoteFormations.list(q, status, from, to, page, authHeader)
-    if (data && ((data.items && data.items.length > 0) || data.total > 0)) {
-      return NextResponse.json(data)
+    if (data && Array.isArray(data.items)) {
+      return NextResponse.json(data, {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+      })
     }
   } catch (e: any) {
     console.warn('remoteFormations.list failed, reading local store:', e.message)
@@ -30,24 +29,28 @@ export async function GET(req: NextRequest) {
 
   const local = await readJson<any[]>('formations.json', [])
   const filtered = local.filter((f) => {
+    if (f?.deletedAt) return false
     if (status && f.status !== status) return false
     if (q && !f.title?.toLowerCase().includes(q.toLowerCase())) return false
     return true
   })
 
-  return NextResponse.json({
-    items: filtered,
-    total: filtered.length,
-    page: 1,
-    pageSize: 10,
-    totalPages: 1,
-  })
+  return NextResponse.json(
+    {
+      items: filtered,
+      total: filtered.length,
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+    },
+    { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+  )
 }
 
 export async function POST(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_formations')
+  const { res, authHeader } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const authHeader = getAuthHeader(req)
+
   const body = await req.json().catch(() => null)
   if (!body?.title?.trim()) {
     return NextResponse.json({ message: 'Le titre de la formation est requis.' }, { status: 400 })
@@ -70,13 +73,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const item = await remoteFormations.create(cleanFormation, authHeader)
+    const created = await remoteFormations.create(cleanFormation, authHeader)
+    const item = created?.item || created
     if (item && item.id) {
       const list = await readJson<any[]>('formations.json', [])
       await writeJson('formations.json', [item, ...list.filter((f) => f.id !== item.id)])
       return NextResponse.json(item, { status: 201 })
     }
   } catch (e: any) {
+    const status = Number(e?.status) || 0
+    if (status >= 400 && status < 500) {
+      return NextResponse.json({ message: e.message || 'Impossible de créer la formation.' }, { status })
+    }
     console.warn('remoteFormations.create failed, falling back to local store:', e.message)
   }
 

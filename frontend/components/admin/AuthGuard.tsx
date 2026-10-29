@@ -9,7 +9,11 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const [state, setState] = useState<'loading' | 'ok' | 'denied'>('loading')
 
   useEffect(() => {
-    fetch('/api/admin/stats')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    fetch('/api/admin/stats', {
+      headers: token ? { authorization: `Bearer ${token}` } : undefined,
+      credentials: 'include',
+    })
       .then((r) => setState(r.ok ? 'ok' : 'denied'))
       .catch(() => setState('denied'))
   }, [])

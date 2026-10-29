@@ -13,11 +13,11 @@ function readLocalMessages() {
   }
 }
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_messages')
+  const { res, authHeader } = requireAuth(req, 'manage_messages')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   try {
     const data = await remoteMessages.listThreads(authHeader)
     return NextResponse.json(data)
@@ -28,10 +28,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_messages')
+  const { res, authHeader } = requireAuth(req, 'manage_messages')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   const body = await req.json().catch(() => null)
   if (!body?.id) return NextResponse.json({ message: 'id requis' }, { status: 400 })
   try {

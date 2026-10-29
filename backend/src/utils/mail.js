@@ -2,38 +2,45 @@
 import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 
-const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM || 'onboarding@resend.dev';
+const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+const smtpFromEmail = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.RESEND_FROM_EMAIL || 'noreply@rekoma.mg';
+const fromEmail = process.env.SMTP_FROM || process.env.RESEND_FROM_EMAIL || process.env.SMTP_USER || 'onboarding@resend.dev';
 const fromName = process.env.RESEND_FROM_NAME || 'REKOMA';
 const DEV_MODE = process.env.DEV_EMAIL_MODE === 'true';
 const DEV_REDIRECT_TO = process.env.DEV_REDIRECT_TO || 'andrianisaina23@gmail.com';
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'andrianisaina23@gmail.com';
 
-// Initialize Resend client if valid API key exists
 let resendClient = null;
-if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.startsWith('re_')) {
-  try {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  } catch (err) {
-    console.warn('[mail] Could not initialize Resend:', err.message);
+function getResendClient() {
+  if (!resendClient && process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.startsWith('re_')) {
+    try {
+      resendClient = new Resend(process.env.RESEND_API_KEY.trim());
+    } catch (err) {
+      console.warn('[mail] Could not initialize Resend:', err.message);
+    }
   }
+  return resendClient;
 }
 
-// Initialize Nodemailer SMTP transporter if SMTP_HOST is defined
 let smtpTransporter = null;
-if (process.env.SMTP_HOST) {
-  try {
-    smtpTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 587,
-      secure: Number(process.env.SMTP_PORT) === 465,
-      auth: process.env.SMTP_USER ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-      } : undefined,
-    });
-  } catch (err) {
-    console.warn('[mail] Could not initialize SMTP transporter:', err.message);
+function getSmtpTransporter() {
+  if (!smtpTransporter && process.env.SMTP_HOST) {
+    try {
+      const port = Number(process.env.SMTP_PORT) || 587;
+      smtpTransporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST.trim(),
+        port,
+        secure: port === 465,
+        auth: process.env.SMTP_USER ? {
+          user: process.env.SMTP_USER.trim(),
+          pass: process.env.SMTP_PASSWORD,
+        } : undefined,
+      });
+    } catch (err) {
+      console.warn('[mail] Could not initialize SMTP transporter:', err.message);
+    }
   }
+  return smtpTransporter;
 }
 
 /**
@@ -74,20 +81,52 @@ export async function sendEmail({ to, subject, html, text, replyTo }) {
     const recipientList = Array.isArray(finalTo) ? finalTo : [finalTo];
     console.log(`[mail] Tentative envoi vers=${recipientList.join(', ')} sujet="${subject}"`);
 
-    const emailPayload = {
-      from: `${fromName} <${fromEmail}>`,
-      to: recipientList,
-      subject,
-      html: html || text?.replace(/\n/g, '<br/>') || '',
-      text: text || cleanHtml(html) || '',
-      replyTo: replyTo || undefined,
-    };
+    const htmlContent = html || text?.replace(/\n/g, '<br/>') || '';
+    const textContent = text || cleanHtml(html) || '';
+    const errors = [];
 
-    // 1. Essai via Resend si disponible
-    if (resendClient) {
+    // 1. Priorité SMTP si configuré (permet d'envoyer à tous les destinataires sans restriction de domaine sandbox Resend)
+    const activeSmtp = getSmtpTransporter();
+    if (activeSmtp) {
       try {
-        const { data, error } = await resendClient.emails.send(emailPayload);
+        const currentSmtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER || smtpFromEmail;
+        const info = await activeSmtp.sendMail({
+          from: `${fromName} <${currentSmtpFrom}>`,
+          to: recipientList.join(', '),
+          subject,
+          html: htmlContent,
+          text: textContent,
+          replyTo: replyTo || CONTACT_TO_EMAIL || undefined,
+        });
+        console.log('[mail] Email envoyé avec succès via SMTP. ID:', info.messageId);
+        return {
+          success: true,
+          provider: 'smtp',
+          info,
+          devRedirect: isDevRedirect,
+          originalTo: isDevRedirect ? originalTo : null,
+        };
+      } catch (smtpErr) {
+        errors.push(`SMTP: ${smtpErr.message}`);
+        console.warn('[mail] Exception lors de l\'envoi SMTP:', smtpErr.message);
+      }
+    }
+
+    // 2. Essai via Resend si disponible
+    const activeResend = getResendClient();
+    if (activeResend) {
+      try {
+        const currentResendFrom = process.env.RESEND_FROM_EMAIL || resendFromEmail;
+        const { data, error } = await activeResend.emails.send({
+          from: `${fromName} <${currentResendFrom}>`,
+          to: recipientList,
+          subject,
+          html: htmlContent,
+          text: textContent,
+          replyTo: replyTo || CONTACT_TO_EMAIL || undefined,
+        });
         if (error) {
+          errors.push(`Resend: ${error.message || JSON.stringify(error)}`);
           console.warn('[mail] Échec Resend API:', error.message || error);
         } else {
           console.log('[mail] Email envoyé avec succès via Resend. ID:', data?.id);
@@ -100,40 +139,20 @@ export async function sendEmail({ to, subject, html, text, replyTo }) {
           };
         }
       } catch (resendErr) {
+        errors.push(`Resend: ${resendErr.message}`);
         console.warn('[mail] Exception lors de l\'envoi Resend:', resendErr.message);
       }
     }
 
-    // 2. Essai de repli via SMTP si configuré
-    if (smtpTransporter) {
-      try {
-        const info = await smtpTransporter.sendMail({
-          from: emailPayload.from,
-          to: recipientList.join(', '),
-          subject: emailPayload.subject,
-          html: emailPayload.html,
-          text: emailPayload.text,
-          replyTo: emailPayload.replyTo,
-        });
-        console.log('[mail] Email envoyé avec succès via SMTP. ID:', info.messageId);
-        return {
-          success: true,
-          provider: 'smtp',
-          info,
-          devRedirect: isDevRedirect,
-          originalTo: isDevRedirect ? originalTo : null,
-        };
-      } catch (smtpErr) {
-        console.warn('[mail] Exception lors de l\'envoi SMTP:', smtpErr.message);
-      }
-    }
-
     // 3. Si aucun fournisseur n'a pu délivrer l'email
-    console.warn(`[mail] Aucun fournisseur actif (Resend/SMTP). Message consigné dans les logs.`);
+    const combinedError = errors.length
+      ? errors.join(' | ')
+      : 'Aucun service email fonctionnel (configurez SMTP_HOST/SMTP_USER ou un domaine vérifié RESEND_FROM_EMAIL)';
+    console.warn(`[mail] Échec d'envoi vers ${recipientList.join(', ')}: ${combinedError}`);
     return {
       success: false,
       logged: true,
-      error: 'Aucun service email fonctionnel (fournisseur indisponible ou domaine non validé)',
+      error: combinedError,
       devRedirect: isDevRedirect,
       originalTo: isDevRedirect ? originalTo : null,
     };
@@ -325,9 +344,9 @@ export function twoFactorEmail(email, code, username = '') {
     </div>
   `;
 
-  return sendEmail({
+  return sendEmailSafe({
     to: email,
-    subject: `🔐 Code de vérification - ${fromName}`,
+    subject: `Code de vérification ${fromName} : ${code}`,
     html,
     text: `Code de vérification ${fromName}\n\n${username ? `Bonjour ${username},\n\n` : ''}Votre code de vérification est : ${code}\n\nCe code expire dans 10 minutes.\nNe partagez jamais ce code.`,
   });
@@ -400,7 +419,10 @@ export function replyMessageEmail({ to, subject, body, originalMessage }) {
  */
 export async function verifySMTP() {
   try {
-    // Tester l'envoi d'un email de test
+    const activeSmtp = getSmtpTransporter();
+    if (activeSmtp) {
+      await activeSmtp.verify();
+    }
     const result = await sendEmailSafe({
       to: DEV_REDIRECT_TO,
       subject: `Test de configuration email - ${fromName}`,
@@ -409,8 +431,9 @@ export async function verifySMTP() {
     });
 
     return {
-      success: true,
-      provider: 'resend',
+      success: result.success === true,
+      provider: result.provider || (activeSmtp ? 'smtp' : 'resend'),
+      error: result.error || null,
       devMode: DEV_MODE,
       devRedirectTo: DEV_REDIRECT_TO,
       fromEmail,
@@ -420,7 +443,7 @@ export async function verifySMTP() {
   } catch (error) {
     return {
       success: false,
-      provider: 'resend',
+      provider: process.env.SMTP_HOST ? 'smtp' : 'resend',
       error: error.message,
       devMode: DEV_MODE,
       fromEmail,

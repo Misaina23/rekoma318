@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { API } from '@/lib/server/remote'
+import { API, registerRefreshPair } from '@/lib/server/remote'
 import { createSession, verifyCredentials } from '@/lib/server/auth'
+import { extractCookieFromResponse } from '@/lib/server/guard'
 import { checkRateLimit, resetRateLimit } from '@/lib/server/rateLimit'
 
 export async function POST(req: NextRequest) {
+  const isSecure = req.headers.get('x-forwarded-proto') === 'https' || req.nextUrl.protocol === 'https:'
+  const sameSite: 'none' | 'lax' = isSecure ? 'none' : 'lax'
   const body = await req.json().catch(() => null)
   const email = body?.email?.trim().toLowerCase()
   const password = body?.password
@@ -34,19 +37,30 @@ export async function POST(req: NextRequest) {
     })
     const data = await r.json().catch(() => ({}))
 
-    if (r.ok && (data?.user || data?.success)) {
+    if (r.ok && (data?.user || data?.success || data?.requiresTwoFactor)) {
       resetRateLimit(rateLimitKey)
       const user = data.user || { email, role: 'super_admin' }
-      const requiresTwoFactor = data?.requiresTwoFactor !== false
+      const requiresTwoFactor = data?.requiresTwoFactor === true
 
       if (requiresTwoFactor) {
-        // Request 2FA code
+        // Request 2FA code via dedicated backend verification endpoint
         const twoFa = await fetch(`${API}/api/verification/2fa/request`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ email, password }),
         }).catch(() => null)
         const twoFaData = twoFa ? await twoFa.json().catch(() => ({})) : null
+
+        if (twoFa && !twoFa.ok) {
+          return NextResponse.json(
+            {
+              message: twoFaData?.error || twoFaData?.message || 'Impossible d’envoyer le code 2FA.',
+              emailSent: false,
+            },
+            { status: twoFa.status }
+          )
+        }
+
         const sessionId = twoFaData?.sessionId || `session_${Date.now()}`
 
         // Temporary 2FA verification ticket (not the final admin session)
@@ -54,33 +68,55 @@ export async function POST(req: NextRequest) {
           ok: true,
           requiresTwoFactor: true,
           sessionId,
-          message: twoFaData?.message || 'Code de vérification généré',
-          emailSent: twoFaData?.emailSent,
+          message: twoFaData?.message || 'Code de vérification envoyé par email',
+          emailSent: twoFaData?.emailSent ?? true,
+          emailError: twoFaData?.emailError || null,
         })
         res.cookies.set('rekoma_2fa_pending', Buffer.from(JSON.stringify({ email, role: user.role, sessionId })).toString('base64'), {
           httpOnly: true,
-          sameSite: 'lax',
+          sameSite,
+          secure: isSecure,
           path: '/',
           maxAge: 10 * 60,
         })
         return res
       }
 
-      // No 2FA required: grant session directly
+      // No 2FA required: extract genuine backend JWT from JSON or Set-Cookie headers
       const sessionToken = createSession(user.email, user.role)
-      const res = NextResponse.json({ ok: true, user, accessToken: data.accessToken || sessionToken })
+      const backendAccessToken = data.accessToken || extractCookieFromResponse(r, 'accessToken')
+      const backendRefreshToken = data.refreshToken || extractCookieFromResponse(r, 'refreshToken')
+      const effectiveAccessToken = backendAccessToken || sessionToken
+      if (backendAccessToken && backendRefreshToken) {
+        registerRefreshPair(backendAccessToken, backendRefreshToken)
+      }
+      const res = NextResponse.json({
+        ok: true,
+        requiresTwoFactor: false,
+        user,
+        accessToken: effectiveAccessToken,
+      })
       res.cookies.set('rekoma_admin', sessionToken, {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite,
+        secure: isSecure,
         path: '/',
         maxAge: 60 * 60 * 8,
       })
-      if (data.accessToken) {
-        res.cookies.set('rekoma_access_token', data.accessToken, {
-          httpOnly: false,
-          sameSite: 'lax',
+      res.cookies.set('rekoma_access_token', effectiveAccessToken, {
+        httpOnly: false,
+        sameSite,
+        secure: isSecure,
+        path: '/',
+        maxAge: 60 * 60 * 8,
+      })
+      if (backendRefreshToken) {
+        res.cookies.set('rekoma_refresh_token', backendRefreshToken, {
+          httpOnly: true,
+          sameSite,
+          secure: isSecure,
           path: '/',
-          maxAge: 60 * 60 * 8,
+          maxAge: 60 * 60 * 24 * 7,
         })
       }
       return res
@@ -104,13 +140,15 @@ export async function POST(req: NextRequest) {
     })
     res.cookies.set('rekoma_admin', sessionToken, {
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite,
+      secure: isSecure,
       path: '/',
       maxAge: 60 * 60 * 8,
     })
     res.cookies.set('rekoma_access_token', sessionToken, {
       httpOnly: false,
-      sameSite: 'lax',
+      sameSite,
+      secure: isSecure,
       path: '/',
       maxAge: 60 * 60 * 8,
     })

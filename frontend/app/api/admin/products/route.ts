@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteStore } from '@/lib/server/remote'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_products')
+  const { res, authHeader } = requireAuth(req, 'manage_products')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
   try {
-    return NextResponse.json(await remoteStore.adminProducts(token ? `Bearer ${token}` : undefined))
+    return NextResponse.json(await remoteStore.adminProducts(authHeader))
   } catch (error) {
     const status = (error as { status?: number }).status || 502
     const message = error instanceof Error ? error.message : 'Articles indisponibles.'
@@ -16,13 +17,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_products')
+  const { res, authHeader } = requireAuth(req, 'manage_products')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
   const body = await req.json().catch(() => null)
   if (!body) return NextResponse.json({ message: 'Données d’article invalides.' }, { status: 400 })
   try {
-    return NextResponse.json(await remoteStore.createProduct(body, token ? `Bearer ${token}` : undefined), { status: 201 })
+    return NextResponse.json(await remoteStore.createProduct(body, authHeader), { status: 201 })
   } catch (error) {
     const status = (error as { status?: number }).status || 502
     const message = error instanceof Error ? error.message : 'Création impossible.'

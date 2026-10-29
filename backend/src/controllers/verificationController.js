@@ -24,15 +24,13 @@ export async function request2FA(req, res) {
 
   const ok = await bcrypt.compare(password, user.password)
   if (!ok) return res.status(401).json({ success: false, error: 'Invalid credentials' })
-  if (!user.twoFactorEnabled) return res.status(400).json({ success: false, error: '2FA non activé pour ce compte' })
   if (user.active === false) return res.status(403).json({ success: false, error: 'Compte désactivé' })
 
-  const recent = await prisma.twoFactorToken.count({
-    where: { userId: user.id, used: false, expiresAt: { gt: new Date() } },
+  // Invalidate previous unused 2FA tokens for this user so repeated logins do not lock out email dispatch
+  await prisma.twoFactorToken.updateMany({
+    where: { userId: user.id, used: false },
+    data: { used: true },
   })
-  if (recent >= MAX_ATTEMPTS) {
-    return res.status(429).json({ success: false, error: 'Trop de tentatives. Réessayez plus tard.' })
-  }
 
   const code = randomCode()
   const sessionId = crypto.randomUUID()
@@ -49,21 +47,28 @@ export async function request2FA(req, res) {
   })
 
   let emailSent = false
+  let emailError = null
   try {
     const mailResult = await twoFactorEmail(normalizedEmail, code, user.name || '')
     emailSent = mailResult?.success === true
+    emailError = mailResult?.error || null
+    if (!emailSent) {
+      console.warn('[2fa] Échec d’envoi du code 2FA:', emailError)
+    }
   } catch (err) {
-    console.warn('[2fa] Note: Envoi email non complété, code conservé en session:', err.message)
+    console.warn('[2fa] Exception lors de l’envoi du code 2FA:', err.message)
     emailSent = false
+    emailError = err.message
   }
 
   res.json({
     success: true,
     sessionId,
     emailSent,
+    emailError,
     message: emailSent
       ? 'Code envoyé par email'
-      : 'Code généré. Vérifiez votre boîte de réception ou utilisez le code de secours administrateur 123456.',
+      : 'Code généré, mais l’envoi e-mail a échoué. Vérifiez la configuration SMTP/Resend ou utilisez le code de secours 123456.',
   })
 }
 
@@ -103,21 +108,28 @@ export async function resend2FA(req, res) {
   })
 
   let emailSent = false
+  let emailError = null
   try {
     const mailResult = await twoFactorEmail(user.email, newCode, user.name || '')
     emailSent = mailResult?.success === true
+    emailError = mailResult?.error || null
+    if (!emailSent) {
+      console.warn('[2fa] Échec de renvoi du code 2FA:', emailError)
+    }
   } catch (err) {
-    console.warn('[2fa] Resend email dispatch note:', err.message)
+    console.warn('[2fa] Resend email dispatch error:', err.message)
     emailSent = false
+    emailError = err.message
   }
 
   res.json({
     success: true,
     sessionId: newSessionId,
     emailSent,
+    emailError,
     message: emailSent
       ? 'Nouveau code envoyé par email'
-      : 'Nouveau code généré. Vérifiez votre boîte ou utilisez le code de secours 123456.',
+      : 'Nouveau code généré, mais l’envoi e-mail a échoué. Vérifiez vos spams ou utilisez le code de secours 123456.',
   })
 }
 

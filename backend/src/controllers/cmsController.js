@@ -221,7 +221,12 @@ export async function listFormations(req, res) {
       orderBy: { date: 'desc' },
       skip,
       take: FORMATION_PAGE_SIZE,
-      include: { beneficiaries: { select: { id: true, firstName: true, lastName: true, cin: true, phone: true, address: true, status: true, attendance: true } } },
+      include: {
+        beneficiaries: {
+          where: { deletedAt: null },
+          select: { id: true, firstName: true, lastName: true, cin: true, phone: true, address: true, status: true, attendance: true },
+        },
+      },
     }),
     prisma.formation.count({ where }),
   ])
@@ -274,12 +279,21 @@ export async function updateFormation(req, res) {
 
 export async function deleteFormation(req, res) {
   try {
+    const id = req.params.id
+    const existing = await prisma.formation.findUnique({ where: { id } })
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Formation introuvable' })
+    }
     await prisma.beneficiary.updateMany({
-      where: { formationId: req.params.id },
+      where: { formationId: id },
       data: { formationId: null },
     })
-    await prisma.formation.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } })
-    res.json({ success: true })
+    await prisma.formation.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    })
+    res.set('Cache-Control', 'no-store')
+    res.json({ success: true, id })
   } catch (e) {
     console.error('deleteFormation error:', e)
     res.status(500).json({ success: false, error: e.message || 'Erreur suppression formation' })

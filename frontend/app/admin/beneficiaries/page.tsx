@@ -65,8 +65,9 @@ export default function BeneficiariesPage() {
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') || undefined : undefined
-    const authHeader = token ? `Bearer ${token}` : undefined
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : undefined
+    const authHeader = valid ? `Bearer ${valid}` : undefined
     const [data, st, fm] = await Promise.all([
       remoteBeneficiaries.list(
         debouncedQ || undefined,
@@ -79,7 +80,7 @@ export default function BeneficiariesPage() {
         authHeader,
       ).catch((e) => { console.error('remoteBeneficiaries.list failed', e); return { items: [], total: 0, page: 1, pageSize: 4, totalPages: 1 } as any }),
       remoteBeneficiaries.stats(authHeader).catch((e) => { console.error('remoteBeneficiaries.stats failed', e); return { total: 0, breakdown: {} } }),
-      remoteFormations.list(undefined, undefined, undefined, undefined, authHeader).catch((e) => { console.error('remoteFormations.list failed', e); return [] }),
+      remoteFormations.list(undefined, undefined, undefined, undefined, undefined, authHeader).catch((e) => { console.error('remoteFormations.list failed', e); return [] }),
     ])
     setItems((data as any).items || [])
     setTotalPages((data as any).totalPages || 1)
@@ -104,10 +105,16 @@ export default function BeneficiariesPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    await remoteBeneficiaries.remove(id)
-    toast('Supprimé ✓', 'success')
-    load()
-    if (selected?.id === id) setSelected(null)
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+      const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : undefined
+      await remoteBeneficiaries.remove(id, valid ? `Bearer ${valid}` : undefined)
+      toast('Supprimé ✓', 'success')
+      load()
+      if (selected?.id === id) setSelected(null)
+    } catch (e: any) {
+      toast(e.message || 'Erreur lors de la suppression', 'error')
+    }
   }
 
   function exportCsv() {

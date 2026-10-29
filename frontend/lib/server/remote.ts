@@ -4,23 +4,155 @@
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://rekoma318.onrender.com'
 
+// Maps expired/current access tokens to their refresh tokens and latest renewed access tokens
+const refreshByAccess = new Map<string, string>()
+const renewedAccessMap = new Map<string, string>()
+
+export function registerRefreshPair(accessToken: string, refreshToken: string) {
+  if (!accessToken || !refreshToken) return
+  if (refreshByAccess.size > 200) {
+    const firstKey = refreshByAccess.keys().next().value
+    if (firstKey) refreshByAccess.delete(firstKey)
+  }
+  refreshByAccess.set(accessToken, refreshToken)
+}
+
+function stripBearer(raw?: string | null): string | undefined {
+  if (!raw || typeof raw !== 'string') return undefined
+  let token = raw.trim()
+  while (/^Bearer\s+/i.test(token)) {
+    token = token.replace(/^Bearer\s+/i, '').trim()
+  }
+  token = token.replace(/^["']+|["']+$/g, '').trim()
+  if (!token || token === 'undefined' || token === 'null' || token === '[object Object]') {
+    return undefined
+  }
+  return token
+}
+
+function normalizeAuthHeader(authHeader?: string | null): string | undefined {
+  let raw = authHeader
+  if (!raw && typeof window !== 'undefined') {
+    try {
+      raw = window.localStorage.getItem('rekoma_access_token')
+    } catch {
+      raw = null
+    }
+    if (!stripBearer(raw) && typeof document !== 'undefined') {
+      const m = document.cookie.match(/(?:^|;\s*)rekoma_access_token=([^;]+)/)
+      if (m?.[1]) raw = decodeURIComponent(m[1])
+    }
+  }
+  const clean = stripBearer(raw)
+  if (!clean) return undefined
+  const renewed = renewedAccessMap.get(clean) || clean
+  return `Bearer ${renewed}`
+}
+
+function extractSetCookieToken(res: Response, name: string): string | undefined {
+  try {
+    const headersAny = res.headers as any
+    const list: string[] =
+      typeof headersAny.getSetCookie === 'function'
+        ? headersAny.getSetCookie()
+        : res.headers.get('set-cookie')
+          ? [res.headers.get('set-cookie') as string]
+          : []
+    for (const item of list) {
+      const m = item.match(new RegExp(`(?:^|,\\s*)${name}=([^;\\s,]+)`))
+      if (m?.[1]) {
+        const clean = stripBearer(decodeURIComponent(m[1]))
+        if (clean) return clean
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return undefined
+}
+
+async function tryRefreshAccessToken(oldToken?: string): Promise<string | undefined> {
+  const knownRefresh = oldToken ? refreshByAccess.get(oldToken) : undefined
+  if (!knownRefresh && typeof window === 'undefined') return undefined
+
+  try {
+    const refreshRes = await fetch(`${API}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'content-type': 'application/json',
+        ...(knownRefresh ? { cookie: `refreshToken=${knownRefresh}` } : {}),
+      },
+      body: JSON.stringify(knownRefresh ? { refreshToken: knownRefresh } : {}),
+      cache: 'no-store',
+    })
+    if (!refreshRes.ok) return undefined
+    const body = await refreshRes.json().catch(() => ({}))
+    const freshAccess = stripBearer(body?.accessToken) || extractSetCookieToken(refreshRes, 'accessToken')
+    const freshRefresh = stripBearer(body?.refreshToken) || extractSetCookieToken(refreshRes, 'refreshToken') || knownRefresh
+    if (freshAccess) {
+      if (oldToken) renewedAccessMap.set(oldToken, freshAccess)
+      if (freshRefresh) registerRefreshPair(freshAccess, freshRefresh)
+      if (typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem('rekoma_access_token', freshAccess)
+        } catch {
+          // ignore
+        }
+      }
+      return freshAccess
+    }
+  } catch {
+    // ignore refresh failure
+  }
+  return undefined
+}
+
 async function call(path: string, init: RequestInit = {}, authHeader?: string | null) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 30000)
+  const resolvedAuth = normalizeAuthHeader(authHeader)
+  const rawToken = stripBearer(resolvedAuth)
   try {
-    const res = await fetch(`${API}${path}`, {
+    let res = await fetch(`${API}${path}`, {
       ...init,
       signal: init.signal || controller.signal,
       credentials: 'include',
       headers: {
         'content-type': 'application/json',
         ...(init.headers || {}),
-        ...(authHeader ? { authorization: authHeader } : {}),
+        ...(resolvedAuth ? { authorization: resolvedAuth } : {}),
       },
       cache: 'no-store',
     })
+
+    // Transparently refresh expired backend JWT once on 401
+    if (res.status === 401 && path !== '/api/auth/refresh' && path !== '/api/auth/login') {
+      const freshAccess = await tryRefreshAccessToken(rawToken)
+      if (freshAccess) {
+        res = await fetch(`${API}${path}`, {
+          ...init,
+          signal: init.signal || controller.signal,
+          credentials: 'include',
+          headers: {
+            'content-type': 'application/json',
+            ...(init.headers || {}),
+            authorization: `Bearer ${freshAccess}`,
+          },
+          cache: 'no-store',
+        })
+      }
+    }
+
     const text = await res.text()
-    const data = text ? JSON.parse(text) : null
+    let data: any = null
+    if (text) {
+      try {
+        data = JSON.parse(text)
+      } catch {
+        data = { message: text }
+      }
+    }
     if (!res.ok) {
       const err = new Error((data && (data.error || data.message)) || `Backend ${res.status}`)
       ;(err as any).status = res.status

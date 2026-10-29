@@ -1,8 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { getSession } from '@/lib/server/auth'
+import { getBackendAuthHeader } from '@/lib/server/guard'
 import { remoteMessages, remoteMembers, remoteActivities, remoteFormations, remoteDonations } from '@/lib/server/remote'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+
+export const dynamic = 'force-dynamic'
 
 function readLocalData<T>(filename: string, fallback: T): T {
   try {
@@ -28,8 +31,7 @@ function safeDonations(data: any): { donations: any[]; totalCollected: number } 
 export async function GET(req: NextRequest) {
   const session = getSession(req)
   if (!session) return NextResponse.json({ message: 'Non autorisé' }, { status: 401 })
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
+  const authHeader = getBackendAuthHeader(req, session)
 
   const day = new Date().toISOString().slice(0, 10)
 
@@ -37,8 +39,8 @@ export async function GET(req: NextRequest) {
     const [threads, members, activities, formations, donations] = await Promise.all([
       remoteMessages.listThreads(authHeader).catch(() => null),
       remoteMembers.list(undefined, authHeader).catch(() => null),
-      remoteActivities.list(authHeader).catch(() => null),
-      remoteFormations.list(authHeader).catch(() => null),
+      remoteActivities.list(undefined, undefined, undefined, authHeader).catch(() => null),
+      remoteFormations.list(undefined, undefined, undefined, undefined, undefined, authHeader).catch(() => null),
       remoteDonations.list(undefined, authHeader).catch(() => null),
     ])
 

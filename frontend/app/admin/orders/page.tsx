@@ -56,11 +56,24 @@ export default function AdminOrdersPage() {
     [orders, statusFilter]
   )
 
+  function buildAuthHeaders(extra: Record<string, string> = {}) {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : null
+    return {
+      ...extra,
+      ...(valid ? { authorization: `Bearer ${valid}` } : {}),
+    }
+  }
+
   async function load() {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/admin/orders')
+      const response = await fetch('/api/admin/orders', {
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
+      })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Impossible de charger les commandes.')
       setOrders(data.orders || [])
@@ -77,7 +90,8 @@ export default function AdminOrdersPage() {
     try {
       const response = await fetch(`/api/admin/orders/${order.id}`, {
         method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
+        headers: buildAuthHeaders({ 'content-type': 'application/json' }),
+        credentials: 'include',
         body: JSON.stringify({ status }),
       })
       const data = await response.json()

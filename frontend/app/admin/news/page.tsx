@@ -33,9 +33,13 @@ export default function NewsAdminPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    await remoteCms.deleteNews(id)
-    toast('Supprimé ✓', 'success')
-    load()
+    try {
+      await remoteCms.deleteNews(id)
+      toast('Supprimé ✓', 'success')
+      load()
+    } catch (e: any) {
+      toast(e?.message || 'Erreur lors de la suppression', 'error')
+    }
   }
 
   return (

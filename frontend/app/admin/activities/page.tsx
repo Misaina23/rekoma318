@@ -45,11 +45,20 @@ export default function ActivitiesPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const r = await fetch(`/api/admin/activities/${id}`, { method: 'DELETE', credentials: 'include' })
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : null
+    const r = await fetch(`/api/admin/activities/${id}`, {
+      method: 'DELETE',
+      headers: valid ? { authorization: `Bearer ${valid}` } : {},
+      credentials: 'include',
+    })
     if (r.ok) { toast(t.admin.delete + ' ✓', 'success'); load() } else toast(t.admin.delete, 'error')
   }
 
-  const sorted = useMemo(() => [...items].sort((a, b) => a.date.localeCompare(b.date)), [items])
+  const sorted = useMemo(
+    () => [...items].sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))),
+    [items]
+  )
 
   return (
     <div className="space-y-5">

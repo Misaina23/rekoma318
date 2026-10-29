@@ -45,9 +45,13 @@ export default function DocumentsAdminPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    await remoteCms.deleteDocument(id)
-    toast('Supprimé ✓', 'success')
-    load()
+    try {
+      await remoteCms.deleteDocument(id)
+      toast('Supprimé ✓', 'success')
+      load()
+    } catch (e: any) {
+      toast(e?.message || 'Erreur lors de la suppression', 'error')
+    }
   }
 
   return (

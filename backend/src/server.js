@@ -1,9 +1,6 @@
+import 'dotenv/config'
 import http from 'http'
 import os from 'os'
-import dotenv from 'dotenv'
-
-dotenv.config()
-
 import app from './app.js'
 import { verifySMTP } from './utils/mail.js'
 

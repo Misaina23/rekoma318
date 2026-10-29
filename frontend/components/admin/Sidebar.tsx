@@ -5,18 +5,20 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { NAV_ITEMS } from './nav'
 import { can, ROLE_LABELS, type Role } from '@/lib/roles'
+import { useToast } from '@/components/ui/toast'
 import { cn } from '@/lib/utils'
 
 export function SidebarContent({ role }: { role: Role }) {
   const { t } = useI18n()
   const router = useRouter()
   const pathname = usePathname()
+  const toast = useToast()
 
   function handleClick(item: typeof NAV_ITEMS[0]) {
     if (can(role, item.capability)) {
       router.push(item.href)
     } else {
-      window.alert("Accès refusé\nVous n'avez pas les permissions nécessaires pour accéder à ce module.")
+      toast("Accès refusé : vous n'avez pas les permissions nécessaires pour accéder à ce module.", 'error')
     }
   }
 

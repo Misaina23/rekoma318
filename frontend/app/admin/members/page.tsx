@@ -39,14 +39,21 @@ export default function MembersPage() {
   const [userTarget, setUserTarget] = useState<Member | null>(null)
   const pageSize = 8
 
+  function getAuthHeaders(extra: Record<string, string> = {}) {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const valid = raw && raw !== 'undefined' && raw !== 'null' ? raw.trim() : null
+    return {
+      ...extra,
+      ...(valid ? { authorization: `Bearer ${valid}` } : {}),
+    }
+  }
+
   async function load() {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
     try {
       const r = await fetch('/api/admin/members', {
-        headers: {
-          ...(token ? { authorization: `Bearer ${token}` } : {})
-        },
-        credentials: 'include'
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        cache: 'no-store',
       })
       if (r.ok) setMembers(await r.json())
     } catch (e: any) {
@@ -82,14 +89,11 @@ export default function MembersPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
     try {
       const r = await fetch(`/api/admin/members/${id}`, {
         method: 'DELETE',
-        headers: {
-          ...(token ? { authorization: `Bearer ${token}` } : {})
-        },
-        credentials: 'include'
+        headers: getAuthHeaders(),
+        credentials: 'include',
       })
       if (r.ok) {
         toast(t.admin.delete + ' ✓', 'success')
@@ -225,11 +229,13 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
     lastName: member?.lastName || '',
     sex: member?.sex || 'M',
     role: member?.role || '',
+    designation: member?.designation || '',
     displayOrder: member?.displayOrder ?? 999,
     description: member?.description || '',
     address: member?.address || '',
     phone: member?.phone || '',
     email: member?.email || '',
+    photo: member?.photo || '',
     status: member?.status || 'active',
   })
   const [saving, setSaving] = useState(false)
@@ -245,14 +251,15 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
     setSaving(true)
     const method = member ? 'PUT' : 'POST'
     const url = member ? `/api/admin/members/${member.id}` : '/api/admin/members'
-    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const rawToken = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const validToken = rawToken && rawToken !== 'undefined' && rawToken !== 'null' ? rawToken.trim() : null
 
     try {
       const r = await fetch(url, {
         method,
         headers: {
           'content-type': 'application/json',
-          ...(token ? { authorization: `Bearer ${token}` } : {})
+          ...(validToken ? { authorization: `Bearer ${validToken}` } : {}),
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -303,6 +310,16 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
             <div className="space-y-1.5">
               <Label>{t.admin.function}</Label>
               <Input value={form.role} onChange={(e) => set('role', e.target.value)} placeholder="ex: Coordinateur, Responsable" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Titre / Désignation (Gouvernance)</Label>
+              <Input value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="ex: Membre du Bureau" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Photo (URL optionnelle)</Label>
+              <Input value={form.photo} onChange={(e) => set('photo', e.target.value)} placeholder="https://... ou /photo.jpg" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -368,9 +385,15 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
   async function submit() {
     setSaving(true)
     try {
+      const rawToken = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+      const validToken = rawToken && rawToken !== 'undefined' && rawToken !== 'null' ? rawToken.trim() : null
       const r = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          ...(validToken ? { authorization: `Bearer ${validToken}` } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ memberId: member.id, email, password: password || undefined, roleId }),
       })
       const d = await r.json().catch(() => ({}))

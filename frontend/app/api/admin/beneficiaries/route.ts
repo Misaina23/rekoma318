@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteBeneficiaries } from '@/lib/server/remote'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_beneficiaries')
+  const { res, authHeader } = requireAuth(req, 'manage_beneficiaries')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   const q = req.nextUrl.searchParams.get('q') || undefined
   const category = req.nextUrl.searchParams.get('category') || undefined
   const formationId = req.nextUrl.searchParams.get('formationId') || undefined
@@ -22,10 +22,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { res } = requireAuth(req, 'manage_beneficiaries')
+  const { res, authHeader } = requireAuth(req, 'manage_beneficiaries')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
   const body = await req.json().catch(() => null)
   if (!body?.firstName || !body?.lastName) {
     return NextResponse.json({ message: 'Nom et prénom requis' }, { status: 400 })

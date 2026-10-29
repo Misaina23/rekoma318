@@ -80,7 +80,13 @@ export default function AdminLoginPage() {
         setSessionId(data.sessionId)
         setStep('twofa')
         setResendCooldown(30)
-        toast('Code de vérification envoyé.', 'success')
+        if (data.emailSent === false) {
+          const warn = data.emailError || 'Échec de l’envoi de l’e-mail 2FA. Vérifiez le service SMTP ou utilisez le code de secours.'
+          setErrorMsg(warn)
+          toast(warn, 'error')
+        } else {
+          toast('Code de vérification envoyé par e-mail.', 'success')
+        }
       } else if (data.ok || data.user) {
         if (typeof window !== 'undefined' && data.accessToken) {
           localStorage.setItem('rekoma_access_token', data.accessToken)
@@ -147,12 +153,22 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin/login/resend', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ sessionId }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.message || 'Erreur lors du renvoi.')
+      if (data.sessionId) {
+        setSessionId(data.sessionId)
+      }
       setResendCooldown(45)
-      toast('Un nouveau code vous a été envoyé.', 'success')
+      if (data.emailSent === false) {
+        const warn = data.emailError || 'L’envoi de l’e-mail a échoué.'
+        setErrorMsg(warn)
+        toast(warn, 'error')
+      } else {
+        toast('Un nouveau code vous a été envoyé.', 'success')
+      }
     } catch (err: any) {
       toast(err.message || 'Erreur lors du renvoi du code', 'error')
     } finally {
@@ -437,7 +453,7 @@ export default function AdminLoginPage() {
                   >
                     {resendCooldown > 0
                       ? `Renvoyer un nouveau code dans ${resendCooldown}s`
-                      : 'Vous n&apos;avez rien reçu ? Renvoyer le code'}
+                      : 'Vous n’avez rien reçu ? Renvoyer le code'}
                   </button>
                 </div>
               </form>

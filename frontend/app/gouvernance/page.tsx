@@ -28,7 +28,7 @@ export default function GovernancePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/members/public')
+    fetch('/api/members/public', { cache: 'no-store' })
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
@@ -38,7 +38,11 @@ export default function GovernancePage() {
   }, [])
 
   const sorted = useMemo(() => {
-    return [...members].sort((a, b) => a.displayOrder - b.displayOrder || a.lastName.localeCompare(b.lastName))
+    return [...members].sort(
+      (a, b) =>
+        (Number(a.displayOrder) || 999) - (Number(b.displayOrder) || 999) ||
+        String(a.lastName || '').localeCompare(String(b.lastName || ''))
+    )
   }, [members])
 
   return (
