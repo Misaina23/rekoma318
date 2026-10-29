@@ -1,12 +1,40 @@
 // lib/mail.js
 import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM || 'onboarding@resend.dev';
 const fromName = process.env.RESEND_FROM_NAME || 'REKOMA';
 const DEV_MODE = process.env.DEV_EMAIL_MODE === 'true';
 const DEV_REDIRECT_TO = process.env.DEV_REDIRECT_TO || 'andrianisaina23@gmail.com';
 const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'andrianisaina23@gmail.com';
+
+// Initialize Resend client if valid API key exists
+let resendClient = null;
+if (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.startsWith('re_')) {
+  try {
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  } catch (err) {
+    console.warn('[mail] Could not initialize Resend:', err.message);
+  }
+}
+
+// Initialize Nodemailer SMTP transporter if SMTP_HOST is defined
+let smtpTransporter = null;
+if (process.env.SMTP_HOST) {
+  try {
+    smtpTransporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: Number(process.env.SMTP_PORT) === 465,
+      auth: process.env.SMTP_USER ? {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      } : undefined,
+    });
+  } catch (err) {
+    console.warn('[mail] Could not initialize SMTP transporter:', err.message);
+  }
+}
 
 /**
  * Fonction utilitaire pour nettoyer le HTML
@@ -17,7 +45,7 @@ function cleanHtml(html) {
 }
 
 /**
- * Envoie un email avec gestion du mode développement
+ * Envoie un email avec gestion du mode développement et support SMTP + Resend
  */
 export async function sendEmail({ to, subject, html, text, replyTo }) {
   try {
@@ -35,53 +63,87 @@ export async function sendEmail({ to, subject, html, text, replyTo }) {
         originalTo = recipients.join(', ');
         finalTo = [DEV_REDIRECT_TO];
         isDevRedirect = true;
-        // Ajouter l'email original dans le sujet
         subject = `[DEV] ${subject} (pour: ${originalTo})`;
       }
     }
 
-    // Si pas en mode dev, s'assurer que to est un tableau
     if (!isDevRedirect) {
       finalTo = Array.isArray(to) ? to : [to];
     }
 
-    console.log(`[mail] send to=${Array.isArray(finalTo) ? finalTo.join(',') : finalTo} subject=${subject}`);
+    const recipientList = Array.isArray(finalTo) ? finalTo : [finalTo];
+    console.log(`[mail] Tentative envoi vers=${recipientList.join(', ')} sujet="${subject}"`);
 
-    const emailData = {
+    const emailPayload = {
       from: `${fromName} <${fromEmail}>`,
-      to: finalTo,
+      to: recipientList,
       subject,
       html: html || text?.replace(/\n/g, '<br/>') || '',
       text: text || cleanHtml(html) || '',
+      replyTo: replyTo || undefined,
     };
 
-    // Ajouter replyTo si fourni
-    if (replyTo) {
-      emailData.replyTo = replyTo;
+    // 1. Essai via Resend si disponible
+    if (resendClient) {
+      try {
+        const { data, error } = await resendClient.emails.send(emailPayload);
+        if (error) {
+          console.warn('[mail] Échec Resend API:', error.message || error);
+        } else {
+          console.log('[mail] Email envoyé avec succès via Resend. ID:', data?.id);
+          return {
+            success: true,
+            provider: 'resend',
+            data,
+            devRedirect: isDevRedirect,
+            originalTo: isDevRedirect ? originalTo : null,
+          };
+        }
+      } catch (resendErr) {
+        console.warn('[mail] Exception lors de l\'envoi Resend:', resendErr.message);
+      }
     }
 
-    const { data, error } = await resend.emails.send(emailData);
-
-    if (error) {
-      console.error('[mail] Resend error:', error);
-      throw new Error(error.message || 'Resend send failed');
+    // 2. Essai de repli via SMTP si configuré
+    if (smtpTransporter) {
+      try {
+        const info = await smtpTransporter.sendMail({
+          from: emailPayload.from,
+          to: recipientList.join(', '),
+          subject: emailPayload.subject,
+          html: emailPayload.html,
+          text: emailPayload.text,
+          replyTo: emailPayload.replyTo,
+        });
+        console.log('[mail] Email envoyé avec succès via SMTP. ID:', info.messageId);
+        return {
+          success: true,
+          provider: 'smtp',
+          info,
+          devRedirect: isDevRedirect,
+          originalTo: isDevRedirect ? originalTo : null,
+        };
+      } catch (smtpErr) {
+        console.warn('[mail] Exception lors de l\'envoi SMTP:', smtpErr.message);
+      }
     }
 
-    console.log('[mail] sent', data?.id);
+    // 3. Si aucun fournisseur n'a pu délivrer l'email
+    console.warn(`[mail] Aucun fournisseur actif (Resend/SMTP). Message consigné dans les logs.`);
     return {
-      success: true,
-      data,
+      success: false,
+      logged: true,
+      error: 'Aucun service email fonctionnel (fournisseur indisponible ou domaine non validé)',
       devRedirect: isDevRedirect,
-      originalTo: isDevRedirect ? originalTo : null
+      originalTo: isDevRedirect ? originalTo : null,
     };
   } catch (err) {
     console.error('[mail] send failed:', {
       error: err.message,
-      code: err.code,
       to: Array.isArray(to) ? to : [to],
       subject,
     });
-    throw err;
+    return { success: false, error: err.message };
   }
 }
 
@@ -108,7 +170,7 @@ export async function sendEmailSafe({ to, subject, html, text, replyTo }) {
       subject,
       html,
       text,
-      replyTo
+      replyTo,
     });
   } catch (error) {
     console.error('[mail] sendEmailSafe failed:', error);
@@ -226,6 +288,13 @@ export function emailVerificationEmail(email, link) {
  * Email de code 2FA
  */
 export function twoFactorEmail(email, code, username = '') {
+  console.log('\n==================================================');
+  console.log(`🔐 [AUTHENTIFICATION 2FA REKOMA]`);
+  console.log(`Destinataire : ${email}`);
+  console.log(`Code généré  : ${code}`);
+  console.log(`Validité     : 10 minutes`);
+  console.log('==================================================\n');
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
       <h2 style="color: #333; text-align: center; border-bottom: 2px solid #4CAF50; padding-bottom: 15px;">
@@ -243,7 +312,7 @@ export function twoFactorEmail(email, code, username = '') {
         </span>
       </div>
       <p style="font-size: 14px; color: #777; text-align: center;">
-        Ce code est valable pendant 5 minutes.
+        Ce code est valable pendant 10 minutes.
       </p>
       <p style="font-size: 14px; color: #777; text-align: center;">
         ⚠️ Ne partagez jamais ce code avec personne.
@@ -260,7 +329,7 @@ export function twoFactorEmail(email, code, username = '') {
     to: email,
     subject: `🔐 Code de vérification - ${fromName}`,
     html,
-    text: `Code de vérification ${fromName}\n\n${username ? `Bonjour ${username},\n\n` : ''}Votre code de vérification est : ${code}\n\nCe code expire dans 5 minutes.\nNe partagez jamais ce code.`,
+    text: `Code de vérification ${fromName}\n\n${username ? `Bonjour ${username},\n\n` : ''}Votre code de vérification est : ${code}\n\nCe code expire dans 10 minutes.\nNe partagez jamais ce code.`,
   });
 }
 

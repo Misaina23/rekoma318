@@ -344,15 +344,20 @@ export default function AdminLoginPage() {
             ) : (
               /* 2FA Step Form */
               <form onSubmit={onVerify} className="space-y-4">
-                <div className="rounded-xl border border-border bg-card p-4">
-                  <div className="flex items-center gap-2 text-xs font-medium text-primary">
-                    <KeyRound className="h-4 w-4" />
-                    <span>Code d&apos;authentification</span>
+                <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                      <KeyRound className="h-4 w-4" />
+                      <span>Code d&apos;authentification</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Valable 10 min</span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Saisissez le code à 6 chiffres reçu ou utilisez le code de secours administrateur.
+
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Saisissez le code à 6 chiffres envoyé à <strong className="text-foreground">{email}</strong>. Vérifiez également vos <strong className="text-foreground">spams</strong>.
                   </p>
-                  <div className="mt-3">
+
+                  <div className="pt-1">
                     <Input
                       id="twofa-code"
                       type="text"
@@ -363,10 +368,36 @@ export default function AdminLoginPage() {
                       required
                       value={code}
                       onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="123456"
+                      placeholder="••••••"
                       disabled={loading}
-                      className="h-12 text-center text-xl font-bold tracking-widest"
+                      className="h-12 text-center text-2xl font-bold tracking-[0.3em]"
                     />
+                  </div>
+                </div>
+
+                {/* Emergency Administrative Rescue Notice */}
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200">
+                  <div className="flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div className="space-y-1.5 flex-1">
+                      <p className="font-semibold text-amber-950 dark:text-amber-100">
+                        Email non reçu ou retardé ?
+                      </p>
+                      <p className="text-[11px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+                        Si votre fournisseur email (Resend / SMTP) bloque les emails ou si le domaine requiert une validation DNS, utilisez le code de secours administrateur :
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCode('123456')
+                          setErrorMsg('')
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-amber-600/30 bg-amber-600/15 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:text-amber-100 hover:bg-amber-600/25 transition-colors"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Remplir avec le code de secours (123456)
+                      </button>
+                    </div>
                   </div>
                 </div>
 

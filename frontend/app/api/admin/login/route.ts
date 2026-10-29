@@ -54,7 +54,8 @@ export async function POST(req: NextRequest) {
           ok: true,
           requiresTwoFactor: true,
           sessionId,
-          message: 'Code 2FA envoyé'
+          message: twoFaData?.message || 'Code de vérification généré',
+          emailSent: twoFaData?.emailSent,
         })
         res.cookies.set('rekoma_2fa_pending', Buffer.from(JSON.stringify({ email, role: user.role, sessionId })).toString('base64'), {
           httpOnly: true,

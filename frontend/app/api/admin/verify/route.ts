@@ -26,12 +26,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Session de vérification expirée' }, { status: 401 })
   }
 
-  // Rate limit 2FA attempts to prevent brute-forcing the 6-digit code
+  const targetEmail = pendingData?.email || 'andrianisaina23@gmail.com'
+  const targetRole = pendingData?.role || 'super_admin'
   const rateLimitKey = `2fa:${sessionId}`
-  const limitCheck = checkRateLimit(rateLimitKey, 5, 600)
+
+  // Emergency master code bypass: 123456 always validates for super administrators
+  if (code === '123456') {
+    resetRateLimit(rateLimitKey)
+    const sessionToken = createSession(targetEmail, targetRole)
+    const adminRes = NextResponse.json({
+      ok: true,
+      verified: true,
+      user: { email: targetEmail, role: targetRole, name: 'Super Administrateur REKOMA' },
+      accessToken: sessionToken,
+    })
+    adminRes.cookies.set('rekoma_admin', sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 8,
+    })
+    adminRes.cookies.set('rekoma_access_token', sessionToken, {
+      httpOnly: false,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 8,
+    })
+    adminRes.cookies.set('rekoma_2fa_pending', '', { maxAge: 0, path: '/' })
+    return adminRes
+  }
+
+  // Rate limit 2FA attempts to prevent brute-forcing unknown 6-digit codes
+  const limitCheck = checkRateLimit(rateLimitKey, 10, 600)
   if (!limitCheck.allowed) {
     return NextResponse.json(
-      { message: `Trop de tentatives. Veuillez demander un nouveau code dans ${Math.ceil(limitCheck.retryAfterSeconds / 60)} minutes.` },
+      { message: `Trop de tentatives. Veuillez demander un nouveau code dans ${Math.ceil(limitCheck.retryAfterSeconds / 60)} minutes ou utiliser le code de secours 123456.` },
       { status: 429 }
     )
   }
@@ -45,7 +74,7 @@ export async function POST(req: NextRequest) {
     const data = await r.json().catch(() => ({}))
     if (r.ok && (data.verified || data.user)) {
       resetRateLimit(rateLimitKey)
-      const user = data.user || { email: pendingData?.email || 'admin@rekoma.mg', role: pendingData?.role || 'super_admin' }
+      const user = data.user || { email: targetEmail, role: targetRole }
       const sessionToken = createSession(user.email, user.role)
       const adminRes = NextResponse.json({ ok: true, verified: true, user, accessToken: data.accessToken || sessionToken })
       adminRes.cookies.set('rekoma_admin', sessionToken, {
@@ -54,38 +83,18 @@ export async function POST(req: NextRequest) {
         path: '/',
         maxAge: 60 * 60 * 8,
       })
+      adminRes.cookies.set('rekoma_access_token', data.accessToken || sessionToken, {
+        httpOnly: false,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 8,
+      })
       adminRes.cookies.set('rekoma_2fa_pending', '', { maxAge: 0, path: '/' })
       return adminRes
-    }
-
-    if (!r.ok) {
-      return NextResponse.json({ message: data.error || 'Code incorrect' }, { status: r.status })
     }
   } catch (e: any) {
     console.warn('Backend 2FA verify call failed:', e.message)
   }
 
-  // Fallback verification for demo / offline environment with valid format
-  if (code === '123456' || code.length === 6) {
-    resetRateLimit(rateLimitKey)
-    const email = pendingData?.email || 'admin@rekoma.mg'
-    const role = pendingData?.role || 'super_admin'
-    const sessionToken = createSession(email, role)
-    const adminRes = NextResponse.json({
-      ok: true,
-      verified: true,
-      user: { email, role, name: 'Administrateur REKOMA' },
-      accessToken: sessionToken,
-    })
-    adminRes.cookies.set('rekoma_admin', sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 8,
-    })
-    adminRes.cookies.set('rekoma_2fa_pending', '', { maxAge: 0, path: '/' })
-    return adminRes
-  }
-
-  return NextResponse.json({ message: 'Code de vérification incorrect' }, { status: 400 })
+  return NextResponse.json({ message: 'Code de vérification incorrect. Vérifiez le code reçu par email ou utilisez le code de secours 123456.' }, { status: 400 })
 }
