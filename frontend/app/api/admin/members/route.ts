@@ -3,29 +3,117 @@ import { revalidatePath } from 'next/cache'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteMembers } from '@/lib/server/remote'
 import { readJson, writeJson } from '@/lib/server/store'
+import { FOUNDATIONAL_BUREAU } from '@/lib/foundational-members'
 import crypto from 'crypto'
+import os from 'os'
+import path from 'path'
+import { promises as fs } from 'fs'
 
 export const dynamic = 'force-dynamic'
+
+function fullNameKey(m: any): string {
+  return `${String(m?.firstName || '').trim()} ${String(m?.lastName || '').trim()}`.trim().toLowerCase()
+}
+
+let seedingPromise: Promise<any[]> | null = null
+let memorySeededFlag = false
+const SEED_MARKER_PATH = path.join(os.tmpdir(), 'rekoma_members_seeded.json')
+
+async function isAlreadySeeded(): Promise<boolean> {
+  if (memorySeededFlag) return true
+  try {
+    const raw = await fs.readFile(SEED_MARKER_PATH, 'utf-8')
+    if (raw.trim() === 'true') {
+      memorySeededFlag = true
+      return true
+    }
+  } catch {
+    // marker not present yet
+  }
+  return false
+}
+
+async function markAsSeeded(): Promise<void> {
+  memorySeededFlag = true
+  try {
+    await fs.writeFile(SEED_MARKER_PATH, 'true', 'utf-8')
+  } catch {
+    // ignore read-only / tmp write errors
+  }
+}
+
+async function seedRemoteFoundationalMembers(authHeader?: string | null): Promise<any[]> {
+  if (seedingPromise) return seedingPromise
+  seedingPromise = (async () => {
+    const createdItems: any[] = []
+    for (const member of FOUNDATIONAL_BUREAU) {
+      try {
+        const res = await remoteMembers.create(
+          {
+            ...member,
+            joinedAt: new Date().toISOString(),
+          },
+          authHeader
+        )
+        const item = res?.item || res
+        if (item?.id) createdItems.push(item)
+      } catch (err: any) {
+        console.warn('Failed to seed foundational member:', member.lastName, err?.message)
+      }
+    }
+    if (createdItems.length > 0) {
+      await markAsSeeded()
+    }
+    return createdItems
+  })().finally(() => {
+    seedingPromise = null
+  })
+  return seedingPromise
+}
 
 export async function GET(req: NextRequest) {
   const { res, authHeader } = requireAuth(req, 'manage_members')
   if (res) return res
 
   const q = req.nextUrl.searchParams.get('q') || undefined
-  const local = await readJson<any[]>('members.json', [])
+  let local = await readJson<any[]>('members.json', [])
+  const alreadySeeded = await isAlreadySeeded()
 
   try {
-    const remoteData = await remoteMembers.list(q, authHeader)
+    let remoteData = await remoteMembers.list(q, authHeader)
     if (Array.isArray(remoteData)) {
+      if (!q && remoteData.length === 0 && !alreadySeeded) {
+        const seeded = await seedRemoteFoundationalMembers(authHeader)
+        if (seeded.length > 0) {
+          remoteData = seeded
+        }
+      } else if (remoteData.length > 0 && !alreadySeeded) {
+        await markAsSeeded()
+      }
+
       const mergedMap = new Map<string, any>()
+      const seenNames = new Set<string>()
       for (const m of remoteData) {
-        if (m?.id) mergedMap.set(m.id, m)
+        if (m?.id && !m.deletedAt) {
+          mergedMap.set(m.id, m)
+          const nk = fullNameKey(m)
+          if (nk) seenNames.add(nk)
+        }
       }
       for (const m of local) {
-        if (m?.id && !mergedMap.has(m.id)) mergedMap.set(m.id, m)
+        if (m?.id && !m.deletedAt && !mergedMap.has(m.id)) {
+          const nk = fullNameKey(m)
+          if (!nk || !seenNames.has(nk)) {
+            mergedMap.set(m.id, m)
+            if (nk) seenNames.add(nk)
+          }
+        }
       }
+
       const list = Array.from(mergedMap.values()).sort(
-        (a, b) => (Number(a.displayOrder) || 999) - (Number(b.displayOrder) || 999) || String(a.lastName || '').localeCompare(String(b.lastName || ''))
+        (a, b) =>
+          (Number(a.displayOrder) || 999) - (Number(b.displayOrder) || 999) ||
+          String(a.lastName || '').localeCompare(String(b.lastName || ''))
       )
       return NextResponse.json(list, {
         headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
@@ -35,10 +123,24 @@ export async function GET(req: NextRequest) {
     console.warn('remoteMembers.list failed, reading from local store:', e.message)
   }
 
+  if (local.length === 0 && !alreadySeeded) {
+    local = FOUNDATIONAL_BUREAU.map((b, idx) => ({
+      ...b,
+      id: `gov-${idx + 1}`,
+      joinedAt: new Date().toISOString(),
+    }))
+    await markAsSeeded()
+  }
+
+  const activeOrInactive = local.filter((m) => !m?.deletedAt)
   const term = q?.trim().toLowerCase()
   const filtered = term
-    ? local.filter((m) => `${m.firstName} ${m.lastName} ${m.email || ''} ${m.role || ''} ${m.designation || ''}`.toLowerCase().includes(term))
-    : local
+    ? activeOrInactive.filter((m) =>
+        `${m.firstName} ${m.lastName} ${m.email || ''} ${m.role || ''} ${m.designation || ''}`
+          .toLowerCase()
+          .includes(term)
+      )
+    : activeOrInactive
   return NextResponse.json(filtered, {
     headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
   })
@@ -75,6 +177,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Ensure foundational bureau is persisted in PostgreSQL before adding a new member
+    // so adding a 10th member never hides the initial 9 governance members
+    const alreadySeeded = await readJson<boolean>('members_seeded.json', false)
+    if (!alreadySeeded) {
+      const existingRemote = await remoteMembers.list(undefined, authHeader).catch(() => null)
+      if (Array.isArray(existingRemote) && existingRemote.length === 0) {
+        await seedRemoteFoundationalMembers(authHeader)
+      } else if (Array.isArray(existingRemote) && existingRemote.length > 0) {
+        await writeJson('members_seeded.json', true)
+      }
+    }
+
     const created = await remoteMembers.create(cleanMember, authHeader)
     const item = created?.item || created
     if (item && item.id) {

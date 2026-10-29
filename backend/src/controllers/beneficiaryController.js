@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js'
 const PAGE_SIZE = 4
 
 export async function listBeneficiaries(req, res) {
+  await prisma.$executeRawUnsafe('ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)').catch(() => {})
   const { q, category, formationId, status, sex, commune, page } = req.query
   const where = { deletedAt: null }
 

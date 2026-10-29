@@ -215,22 +215,45 @@ export async function listFormations(req, res) {
   const page = Math.max(1, Number(req.query.page) || 1)
   const skip = (page - 1) * FORMATION_PAGE_SIZE
 
-  const [items, total] = await Promise.all([
-    prisma.formation.findMany({
-      where,
-      orderBy: { date: 'desc' },
-      skip,
-      take: FORMATION_PAGE_SIZE,
-      include: {
-        beneficiaries: {
-          where: { deletedAt: null },
-          select: { id: true, firstName: true, lastName: true, cin: true, phone: true, address: true, status: true, attendance: true },
-        },
-      },
-    }),
-    prisma.formation.count({ where }),
-  ])
+  await prisma.$executeRawUnsafe('ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)').catch(() => {})
+  await prisma.$executeRawUnsafe('ALTER TABLE "Formation" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)').catch(() => {})
 
+  let items = []
+  let total = 0
+  try {
+    ;[items, total] = await Promise.all([
+      prisma.formation.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        skip,
+        take: FORMATION_PAGE_SIZE,
+        include: {
+          beneficiaries: {
+            where: { deletedAt: null },
+            select: { id: true, firstName: true, lastName: true, cin: true, phone: true, address: true, status: true, attendance: true },
+          },
+        },
+      }),
+      prisma.formation.count({ where }),
+    ])
+  } catch {
+    ;[items, total] = await Promise.all([
+      prisma.formation.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        skip,
+        take: FORMATION_PAGE_SIZE,
+        include: {
+          beneficiaries: {
+            select: { id: true, firstName: true, lastName: true, cin: true, phone: true, address: true, status: true, attendance: true },
+          },
+        },
+      }),
+      prisma.formation.count({ where }),
+    ])
+  }
+
+  res.set('Cache-Control', 'no-store')
   res.json({ items, total, page, pageSize: FORMATION_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(total / FORMATION_PAGE_SIZE)) })
 }
 

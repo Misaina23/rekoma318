@@ -31,13 +31,14 @@ export default function MembersPage() {
   const { t } = useI18n()
   const toast = useToast()
   const [members, setMembers] = useState<Member[]>([])
+  const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [page, setPage] = useState(1)
   const [editing, setEditing] = useState<Member | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [userTarget, setUserTarget] = useState<Member | null>(null)
-  const pageSize = 8
+  const pageSize = 12
 
   function getAuthHeaders(extra: Record<string, string> = {}) {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
@@ -49,15 +50,21 @@ export default function MembersPage() {
   }
 
   async function load() {
+    setLoading(true)
     try {
       const r = await fetch('/api/admin/members', {
         headers: getAuthHeaders(),
         credentials: 'include',
         cache: 'no-store',
       })
-      if (r.ok) setMembers(await r.json())
+      if (r.ok) {
+        const data = await r.json()
+        setMembers(Array.isArray(data) ? data : [])
+      }
     } catch (e: any) {
       console.warn('Failed to load members:', e.message)
+    } finally {
+      setLoading(false)
     }
   }
   useEffect(() => { load() }, [])
@@ -67,7 +74,9 @@ export default function MembersPage() {
     return members.filter((m) => {
       if (status !== 'all' && m.status !== status) return false
       if (!term) return true
-      return `${m.firstName} ${m.lastName} ${m.email || ''} ${m.role || ''}`.toLowerCase().includes(term)
+      return `${m.firstName} ${m.lastName} ${m.email || ''} ${m.role || ''} ${m.designation || ''}`
+        .toLowerCase()
+        .includes(term)
     })
   }, [members, q, status])
 
@@ -75,7 +84,7 @@ export default function MembersPage() {
   const view = filtered.slice((page - 1) * pageSize, page * pageSize)
 
   function exportCsv() {
-    const head = ['firstName', 'lastName', 'sex', 'role', 'address', 'phone', 'email', 'status', 'joinedAt']
+    const head = ['displayOrder', 'firstName', 'lastName', 'sex', 'role', 'designation', 'address', 'phone', 'email', 'status', 'joinedAt']
     const rows = filtered.map((m) => head.map((h) => `"${String((m as any)[h] ?? '').replace(/"/g, '""')}"`).join(','))
     const csv = [head.join(','), ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -96,6 +105,7 @@ export default function MembersPage() {
         credentials: 'include',
       })
       if (r.ok) {
+        setMembers((prev) => prev.filter((m) => m.id !== id))
         toast(t.admin.delete + ' ✓', 'success')
         load()
       } else {
@@ -114,7 +124,12 @@ export default function MembersPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{t.admin.nav.members}</h1>
+        <div>
+          <h1 className="text-2xl font-bold">{t.admin.nav.members}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Les membres ayant le statut « Actif » sont automatiquement affichés sur la page publique Gouvernance.
+          </p>
+        </div>
         <div className="flex gap-2">
           <button onClick={exportCsv} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
             <Download className="h-4 w-4" /> CSV
@@ -150,8 +165,9 @@ export default function MembersPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-border text-left text-muted-foreground">
                 <tr>
+                  <th className="p-4 font-medium w-14">#</th>
                   <th className="p-4 font-medium">{t.admin.lastName}</th>
-                  <th className="p-4 font-medium">{t.admin.function}</th>
+                  <th className="p-4 font-medium">{t.admin.function} / Gouvernance</th>
                   <th className="p-4 font-medium">{t.admin.phone}</th>
                   <th className="p-4 font-medium">{t.admin.email}</th>
                   <th className="p-4 font-medium">{t.admin.status}</th>
@@ -161,32 +177,43 @@ export default function MembersPage() {
               <tbody>
                 {view.map((m) => (
                   <tr key={m.id} className="border-b border-border last:border-0">
+                    <td className="p-4 text-xs font-mono text-muted-foreground">
+                      {m.displayOrder && m.displayOrder < 999 ? m.displayOrder : '—'}
+                    </td>
                     <td className="p-4 font-medium">{m.firstName} {m.lastName}</td>
-                    <td className="p-4 text-muted-foreground">{m.role}</td>
-                    <td className="p-4 text-muted-foreground">{m.phone}</td>
-                    <td className="p-4 text-muted-foreground">{m.email}</td>
+                    <td className="p-4">
+                      <div className="font-medium text-foreground">{m.designation || m.role || '—'}</div>
+                      {m.designation && m.role && m.designation !== m.role && (
+                        <div className="text-xs text-muted-foreground">{m.role}</div>
+                      )}
+                    </td>
+                    <td className="p-4 text-muted-foreground">{m.phone || '—'}</td>
+                    <td className="p-4 text-muted-foreground">{m.email || '—'}</td>
                     <td className="p-4">
                       <Badge variant={m.status === 'active' ? 'default' : 'muted'}>
-                        {m.status === 'active' ? t.admin.active : t.admin.inactive}
+                        {m.status === 'active' ? `${t.admin.active} (Gouvernance)` : `${t.admin.inactive} (Masqué)`}
                       </Badge>
                     </td>
-                   <td className="p-4">
-                     <div className="flex justify-end gap-1">
-                       <button onClick={() => { setEditing(m); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}>
-                         <Pencil className="h-4 w-4" />
-                       </button>
-                       <button onClick={() => openCreateUser(m)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Créer un utilisateur" aria-label="Créer un utilisateur">
-                         <UserRound className="h-4 w-4" />
-                       </button>
-                       <button onClick={() => remove(m.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}>
-                         <Trash2 className="h-4 w-4" />
-                       </button>
-                     </div>
-                   </td>
+                    <td className="p-4">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => { setEditing(m); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}>
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => openCreateUser(m)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Créer un utilisateur" aria-label="Créer un utilisateur">
+                          <UserRound className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => remove(m.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
-                {view.length === 0 && (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">{t.search.empty}</td></tr>
+                {!loading && view.length === 0 && (
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{t.search.empty}</td></tr>
+                )}
+                {loading && view.length === 0 && (
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Chargement des membres...</td></tr>
                 )}
               </tbody>
             </table>
@@ -340,8 +367,8 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
             <div className="space-y-1.5">
               <Label>{t.admin.status}</Label>
               <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                <option value="active">{t.admin.active}</option>
-                <option value="inactive">{t.admin.inactive}</option>
+                <option value="active">{t.admin.active} (Affiché sur Gouvernance)</option>
+                <option value="inactive">{t.admin.inactive} (Masqué sur Gouvernance)</option>
               </select>
             </div>
           </div>
@@ -376,7 +403,12 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
   const [tempPwd, setTempPwd] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/roles/roles')
+    const rawToken = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    const validToken = rawToken && rawToken !== 'undefined' && rawToken !== 'null' ? rawToken.trim() : null
+    fetch('/api/admin/roles/roles', {
+      headers: validToken ? { authorization: `Bearer ${validToken}` } : {},
+      credentials: 'include',
+    })
       .then(r => r.ok ? r.json() : [])
       .then(setRoles)
       .catch(() => {})

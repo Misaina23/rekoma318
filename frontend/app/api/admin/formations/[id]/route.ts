@@ -59,8 +59,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ ok: true, id: params.id })
   } catch (e: any) {
     const status = Number(e?.status) || 500
-    // If it was a local-only formation (404 on backend), remove from local JSON cleanly
-    if (existedLocally && status === 404) {
+    // If it was a local-store formation (404 or 5xx schema mismatch on backend), remove from local JSON cleanly
+    if (existedLocally && (status === 404 || status >= 500)) {
       await writeJson('formations.json', list.filter((f) => f.id !== params.id))
       return NextResponse.json({ ok: true, id: params.id })
     }
