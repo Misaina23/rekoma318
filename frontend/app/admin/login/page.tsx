@@ -1,20 +1,33 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { LogIn, KeyRound } from 'lucide-react'
+import {
+  LogIn,
+  KeyRound,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  AlertCircle
+} from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast } from '@/components/ui/toast'
 import { Input, Label } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { login, request2FA, verify2FA, resend2FA } from '@/lib/api'
 
 export default function AdminLoginPage() {
   const { t } = useI18n()
   const router = useRouter()
   const toast = useToast()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -23,47 +36,64 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const [sessionId, setSessionId] = useState('')
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setInterval(() => {
+      setResendCooldown((c) => Math.max(0, c - 1))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [resendCooldown])
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    setErrorMsg('')
+    const emailVal = email.trim()
+
+    if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+      setErrorMsg('Veuillez saisir une adresse email valide.')
+      toast('Format email invalide', 'error')
+      return
+    }
+
+    if (!password) {
+      setErrorMsg('Veuillez renseigner votre mot de passe.')
+      return
+    }
+
     setLoading(true)
     try {
-      const emailVal = email.trim()
-      if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
-        toast('Format email invalide', 'error')
-        return
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: emailVal, password }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Identifiants invalides.')
       }
-      const data = await login(emailVal, password)
-      if (data?.requiresTwoFactor) {
-        try {
-          const twoFaData = await request2FA(emailVal, password)
-          if (twoFaData?.sessionId) {
-            setSessionId(twoFaData.sessionId)
-            setStep('twofa')
-            setResendCooldown(10)
-            toast('Code 2FA envoyé par email', 'success')
-          } else {
-            toast('Réponse 2FA invalide', 'error')
-          }
-        } catch (err: any) {
-          console.error('request2FA failed', err)
-          toast(err.message || "Échec de l'envoi du code 2FA", 'error')
-        }
-      } else if (data?.success || data?.user) {
-        const payload = Buffer.from(JSON.stringify({ email: data.user.email, role: data.user.role })).toString('base64')
-        document.cookie = `rekoma_admin=${payload}; path=/; max-age=${60 * 60 * 8}`
+
+      if (data.requiresTwoFactor) {
+        setSessionId(data.sessionId)
+        setStep('twofa')
+        setResendCooldown(30)
+        toast('Code de vérification envoyé.', 'success')
+      } else if (data.ok || data.user) {
         if (typeof window !== 'undefined' && data.accessToken) {
-          document.cookie = `rekoma_access_token=${data.accessToken}; path=/; max-age=${15 * 60}`
           localStorage.setItem('rekoma_access_token', data.accessToken)
         }
+        toast('Connexion réussie ✓', 'success')
         router.push('/admin')
         router.refresh()
       } else {
-        toast(data?.error || 'Identifiants invalides', 'error')
+        throw new Error(data.message || 'Identifiants invalides.')
       }
-    } catch (e: any) {
-      console.error('login failed', e)
-      toast(e.message || t.admin.invalid, 'error')
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Échec de connexion')
+      toast(err.message || t.admin.invalid, 'error')
     } finally {
       setLoading(false)
     }
@@ -71,105 +101,326 @@ export default function AdminLoginPage() {
 
   async function onVerify(e: FormEvent) {
     e.preventDefault()
+    setErrorMsg('')
+    const codeVal = code.trim()
+
+    if (!codeVal || codeVal.length < 4) {
+      setErrorMsg('Veuillez entrer le code à 6 chiffres reçu.')
+      return
+    }
+
     setLoading(true)
     try {
-      const data = await verify2FA(sessionId, code)
-      if (data?.verified) {
-        const payload = Buffer.from(JSON.stringify({ email: data.user.email, role: data.user.role })).toString('base64')
-        document.cookie = `rekoma_admin=${payload}; path=/; max-age=${60 * 60 * 8}`
+      const res = await fetch('/api/admin/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ sessionId, code: codeVal }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.message || data.error || 'Code de vérification incorrect.')
+      }
+
+      if (data.verified || data.ok) {
         if (typeof window !== 'undefined' && data.accessToken) {
-          document.cookie = `rekoma_access_token=${data.accessToken}; path=/; max-age=${15 * 60}`
           localStorage.setItem('rekoma_access_token', data.accessToken)
         }
+        toast('Authentification validée ✓', 'success')
         router.push('/admin')
         router.refresh()
       }
-    } catch (e: any) {
-      toast(e.message || t.admin.invalid, 'error')
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Code invalide')
+      toast(err.message || 'Code invalide', 'error')
     } finally {
       setLoading(false)
     }
   }
 
   async function onResend() {
-    if (resendCooldown > 0) return
+    if (resendCooldown > 0 || loading) return
     setLoading(true)
+    setErrorMsg('')
     try {
-      await resend2FA(sessionId)
-      setResendCooldown(10)
-      toast('Code renvoyé', 'success')
-    } catch (e: any) {
-      toast(e.message || 'Erreur', 'error')
+      const res = await fetch('/api/admin/login/resend', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sessionId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.message || 'Erreur lors du renvoi.')
+      setResendCooldown(45)
+      toast('Un nouveau code vous a été envoyé.', 'success')
+    } catch (err: any) {
+      toast(err.message || 'Erreur lors du renvoi du code', 'error')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4 py-16">
-      <div className="w-full max-w-md">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent p-2 shadow-lg">
-            <img src="/logo.png" alt="REKOMA" className="h-8 w-auto" />
-          </span>
-          <h1 className="mt-4 text-2xl font-bold">{t.admin.loginTitle}</h1>
-        </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-background">
+      <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+        {/* Left Side: Brand & Executive Presentation Panel */}
+        <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0c231a] via-[#123528] to-[#1a4736] p-12 text-white lg:flex xl:p-16">
+          {/* Subtle geometric pattern overlay */}
+          <div className="pointer-events-none absolute inset-0 opacity-10 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:24px_24px]" />
+          <div className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-amber-500/10 blur-3xl" />
 
-        {step === 'credentials' ? (
-          <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">{t.admin.email}</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@rekoma.mg" disabled={loading} />
+          {/* Top Brand Tag */}
+          <div className="relative z-10 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-90">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 p-2 backdrop-blur-md border border-white/20">
+                <img src="/logo.png" alt="REKOMA" className="h-8 w-auto object-contain" />
+              </div>
+              <div>
+                <span className="block text-base font-bold tracking-tight text-white">REKOMA</span>
+                <span className="block text-[11px] font-medium uppercase tracking-wider text-emerald-300">Midongy Atsimo</span>
+              </div>
+            </Link>
+            <div className="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/40 px-3 py-1 text-xs text-emerald-200 backdrop-blur-md">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Portail Sécurisé</span>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">{t.admin.password}</Label>
-              <div className="relative">
-                <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" disabled={loading} />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Voir le mot de passe'}
-                >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                      <path d="M17.94 17.94A10 10 0 0 1 6.06 6.06" />
-                      <path d="M1 1l22 22" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  )}
-                </button>
+          </div>
+
+          {/* Center Message */}
+          <div className="relative z-10 my-auto max-w-lg space-y-6 py-12">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+              <span className="h-px w-6 bg-accent" />
+              Administration & Pilotage
+            </div>
+            <h1 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl text-white">
+              Espace de gestion territorial et citoyen
+            </h1>
+            <p className="text-sm leading-relaxed text-emerald-100/80">
+              Accédez aux outils de suivi du projet PDIMA, à la gestion des formations, des bénéficiaires et à la coordination des membres de REKOMA.
+            </p>
+
+            <div className="space-y-3.5 pt-4">
+              <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400 mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-semibold text-white">Traçabilité & Gouvernance</p>
+                  <p className="text-emerald-100/70">Gestion des membres, attestations et rapports d&apos;activité consolidés.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3.5 backdrop-blur-sm">
+                <ShieldCheck className="h-5 w-5 shrink-0 text-accent mt-0.5" />
+                <div className="text-xs">
+                  <p className="font-semibold text-white">Protection renforcée</p>
+                  <p className="text-emerald-100/70">Session signée cryptographiquement et contrôle des permissions strict.</p>
+                </div>
               </div>
             </div>
-            <button type="submit" disabled={loading} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
-              {loading ? 'Connexion...' : <><LogIn className="h-4 w-4" /> {t.admin.submit}</>}
-            </button>
-            <div className="text-center">
-              <Link href="/admin/forgot" className="text-sm text-primary hover:underline">{t.admin.nav.settings} · Mot de passe oublié</Link>
+          </div>
+
+          {/* Footer institutional note */}
+          <div className="relative z-10 flex items-center justify-between border-t border-white/10 pt-6 text-[11px] text-emerald-200/60">
+            <span>District de Midongy du Sud · Madagascar</span>
+            <Link href="/" className="hover:text-white transition-colors">
+              Retour au site public &rarr;
+            </Link>
+          </div>
+        </div>
+
+        {/* Right Side: High-End Authentication Card */}
+        <div className="flex flex-col justify-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20">
+          <div className="mx-auto w-full max-w-md">
+            {/* Mobile Header Logo */}
+            <div className="mb-8 flex items-center justify-between lg:hidden">
+              <Link href="/" className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 p-2">
+                  <img src="/logo.png" alt="REKOMA" className="h-7 w-auto object-contain" />
+                </div>
+                <span className="font-bold">REKOMA Admin</span>
+              </Link>
+              <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">
+                Site public &rarr;
+              </Link>
             </div>
-          </form>
-        ) : (
-          <form onSubmit={onVerify} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <KeyRound className="h-4 w-4" /> Vérification à deux facteurs
+
+            {/* Stage Badge & Title */}
+            <div className="mb-6">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
+                <span>Étape {step === 'credentials' ? '1/2' : '2/2'}</span>
+                <span>·</span>
+                <span>{step === 'credentials' ? 'Authentification' : 'Double facteur'}</span>
+              </div>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                {step === 'credentials' ? 'Connexion administration' : 'Vérification 2FA'}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {step === 'credentials'
+                  ? 'Saisissez vos identifiants autorisés pour accéder à l’espace sécurisé.'
+                  : `Un code temporaire a été émis pour le compte ${email}.`}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">Veuillez vérifier vos emails</p>
-            <div className="space-y-1.5">
-              <Label>Code</Label>
-              <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" autoFocus disabled={loading} />
+
+            {/* Error Alert if any */}
+            {errorMsg && (
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-3.5 text-xs text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            {/* Credentials Step Form */}
+            {step === 'credentials' ? (
+              <form onSubmit={onSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-email">Adresse email</Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="login-email"
+                      type="email"
+                      autoComplete="username"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@rekoma.mg"
+                      disabled={loading}
+                      className="h-11 pl-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password">Mot de passe</Label>
+                    <Link
+                      href="/admin/forgot"
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Mot de passe oublié ?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••••••"
+                      disabled={loading}
+                      className="h-11 pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={cn(buttonVariants({ size: 'lg' }), 'w-full h-11 font-medium mt-2')}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Vérification en cours...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="mr-2 h-4 w-4" />
+                      Se connecter
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              /* 2FA Step Form */
+              <form onSubmit={onVerify} className="space-y-4">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                    <KeyRound className="h-4 w-4" />
+                    <span>Code d&apos;authentification</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Saisissez le code à 6 chiffres reçu ou utilisez le code de secours administrateur.
+                  </p>
+                  <div className="mt-3">
+                    <Input
+                      id="twofa-code"
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      autoFocus
+                      required
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      disabled={loading}
+                      className="h-12 text-center text-xl font-bold tracking-widest"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setStep('credentials'); setErrorMsg('') }}
+                    disabled={loading}
+                    className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'flex-1 h-11')}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Retour
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || code.length < 4}
+                    className={cn(buttonVariants({ size: 'lg' }), 'flex-[2] h-11 font-medium')}
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Validation...
+                      </>
+                    ) : (
+                      <>
+                        Valider le code <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={onResend}
+                    disabled={loading || resendCooldown > 0}
+                    className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    {resendCooldown > 0
+                      ? `Renvoyer un nouveau code dans ${resendCooldown}s`
+                      : 'Vous n&apos;avez rien reçu ? Renvoyer le code'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Bottom Security Guarantee */}
+            <div className="mt-8 border-t border-border pt-6 text-center text-xs text-muted-foreground">
+              <div className="flex items-center justify-center gap-1.5 text-muted-foreground/80">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                <span>Connexion chiffrée SSL/TLS 256 bits · REKOMA</span>
+              </div>
             </div>
-            <button type="submit" disabled={loading} className={cn(buttonVariants({ size: 'lg' }), 'w-full')}>
-              {loading ? 'Vérification...' : t.admin.submit}
-            </button>
-            <button type="button" onClick={onResend} disabled={loading || resendCooldown > 0} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'w-full')}>
-              {resendCooldown > 0 ? `Renvoyer le code dans ${resendCooldown}s` : 'Renvoyer le code'}
-            </button>
-          </form>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   )

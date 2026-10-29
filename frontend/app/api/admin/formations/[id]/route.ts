@@ -1,31 +1,51 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteFormations } from '@/lib/server/remote'
+import { readJson, writeJson } from '@/lib/server/store'
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+function getAuthHeader(req: NextRequest): string | undefined {
+  const token = req.cookies.get('rekoma_access_token')?.value || req.headers.get('authorization')?.replace('Bearer ', '').trim()
+  return token ? `Bearer ${token}` : undefined
+}
+
+async function handleUpdate(req: NextRequest, params: { id: string }) {
   const { res } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
+  const authHeader = getAuthHeader(req)
   const body = await req.json().catch(() => null)
+  let updated = null
   try {
-    return NextResponse.json(await remoteFormations.update(params.id, body, authHeader))
+    updated = await remoteFormations.update(params.id, body, authHeader)
   } catch (e: any) {
-    return NextResponse.json({ message: e.message }, { status: e.status || 500 })
+    console.warn('remoteFormations.update error:', e.message)
   }
+  const list = await readJson<any[]>('formations.json', [])
+  const existing = list.find((f) => f.id === params.id)
+  const merged = updated || { ...(existing || {}), ...body, id: params.id }
+  await writeJson('formations.json', list.map((f) => (f.id === params.id ? merged : f)))
+  return NextResponse.json(merged)
+}
+
+export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  return handleUpdate(req, params)
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  return handleUpdate(req, params)
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const { res } = requireAuth(req, 'manage_formations')
   if (res) return res
-  const token = req.cookies.get('rekoma_access_token')?.value
-  const authHeader = token ? `Bearer ${token}` : undefined
+  const authHeader = getAuthHeader(req)
   try {
     await remoteFormations.remove(params.id, authHeader)
-    return NextResponse.json({ ok: true })
   } catch (e: any) {
-    return NextResponse.json({ message: e.message }, { status: e.status || 500 })
+    console.warn('remoteFormations.remove failed, deleting from local store:', e.message)
   }
+  const list = await readJson<any[]>('formations.json', [])
+  await writeJson('formations.json', list.filter((f) => f.id !== params.id))
+  return NextResponse.json({ ok: true })
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

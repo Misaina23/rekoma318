@@ -70,8 +70,25 @@ export default function FormationsPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const r = await fetch(`/api/admin/formations/${id}`, { method: 'DELETE', credentials: 'include' })
-    if (r.ok) { toast(t.admin.delete + ' ✓', 'success'); load() } else toast(t.admin.delete, 'error')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    try {
+      const r = await fetch(`/api/admin/formations/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
+      })
+      if (r.ok) {
+        toast((t.admin.delete || 'Supprimé') + ' ✓', 'success')
+        load()
+      } else {
+        const d = await r.json().catch(() => ({}))
+        toast(d.message || d.error || t.admin.delete, 'error')
+      }
+    } catch (e: any) {
+      toast(e.message || 'Erreur lors de la suppression', 'error')
+    }
   }
 
   async function openBeneficiaries(formation: Formation) {

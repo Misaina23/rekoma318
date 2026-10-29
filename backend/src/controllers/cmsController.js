@@ -273,8 +273,17 @@ export async function updateFormation(req, res) {
 }
 
 export async function deleteFormation(req, res) {
-  await prisma.formation.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } })
-  res.json({ success: true })
+  try {
+    await prisma.beneficiary.updateMany({
+      where: { formationId: req.params.id },
+      data: { formationId: null },
+    })
+    await prisma.formation.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } })
+    res.json({ success: true })
+  } catch (e) {
+    console.error('deleteFormation error:', e)
+    res.status(500).json({ success: false, error: e.message || 'Erreur suppression formation' })
+  }
 }
 
 export async function generateCertificates(req, res) {

@@ -40,8 +40,18 @@ export default function MembersPage() {
   const pageSize = 8
 
   async function load() {
-    const r = await fetch('/api/admin/members')
-    if (r.ok) setMembers(await r.json())
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    try {
+      const r = await fetch('/api/admin/members', {
+        headers: {
+          ...(token ? { authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
+      })
+      if (r.ok) setMembers(await r.json())
+    } catch (e: any) {
+      console.warn('Failed to load members:', e.message)
+    }
   }
   useEffect(() => { load() }, [])
 
@@ -50,7 +60,7 @@ export default function MembersPage() {
     return members.filter((m) => {
       if (status !== 'all' && m.status !== status) return false
       if (!term) return true
-      return `${m.firstName} ${m.lastName} ${m.email} ${m.role}`.toLowerCase().includes(term)
+      return `${m.firstName} ${m.lastName} ${m.email || ''} ${m.role || ''}`.toLowerCase().includes(term)
     })
   }, [members, q, status])
 
@@ -72,9 +82,25 @@ export default function MembersPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
-    const r = await fetch(`/api/admin/members/${id}`, { method: 'DELETE' })
-    if (r.ok) { toast(t.admin.delete + ' ✓', 'success'); load() }
-    else toast(t.admin.delete, 'error')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+    try {
+      const r = await fetch(`/api/admin/members/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include'
+      })
+      if (r.ok) {
+        toast(t.admin.delete + ' ✓', 'success')
+        load()
+      } else {
+        const d = await r.json().catch(() => ({}))
+        toast(d.message || d.error || t.admin.delete, 'error')
+      }
+    } catch (e: any) {
+      toast(e.message || 'Erreur lors de la suppression', 'error')
+    }
   }
 
   function openCreateUser(m: Member) {
@@ -199,7 +225,6 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
     lastName: member?.lastName || '',
     sex: member?.sex || 'M',
     role: member?.role || '',
-    designation: member?.designation || '',
     displayOrder: member?.displayOrder ?? 999,
     description: member?.description || '',
     address: member?.address || '',
@@ -209,20 +234,44 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
   })
   const [saving, setSaving] = useState(false)
 
-  function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })) }
+  function set(k: string, v: string | number) { setForm((f) => ({ ...f, [k]: v })) }
 
   async function submit() {
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      toast('Le nom et le prénom sont obligatoires.', 'error')
+      return
+    }
+
     setSaving(true)
     const method = member ? 'PUT' : 'POST'
     const url = member ? `/api/admin/members/${member.id}` : '/api/admin/members'
-    const r = await fetch(url, {
-      method,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(form),
-    })
-    setSaving(false)
-    if (r.ok) { toast(t.admin.save + ' ✓', 'success'); onSaved() }
-    else toast(t.admin.save, 'error')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('rekoma_access_token') : null
+
+    try {
+      const r = await fetch(url, {
+        method,
+        headers: {
+          'content-type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {})
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          ...form,
+          displayOrder: Number(form.displayOrder) || 999,
+        }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (r.ok) {
+        toast((member ? 'Membre modifié' : 'Nouveau membre ajouté') + ' ✓', 'success')
+        onSaved()
+      } else {
+        toast(data.message || data.error || t.admin.save, 'error')
+      }
+    } catch (e: any) {
+      toast(e.message || 'Erreur lors de l’enregistrement du membre', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -236,61 +285,58 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t.admin.firstName}</Label>
-              <Input value={form.firstName} onChange={(e) => set('firstName', e.target.value)} />
+              <Input value={form.firstName} onChange={(e) => set('firstName', e.target.value)} required />
             </div>
             <div className="space-y-1.5">
               <Label>{t.admin.lastName}</Label>
-              <Input value={form.lastName} onChange={(e) => set('lastName', e.target.value)} />
+              <Input value={form.lastName} onChange={(e) => set('lastName', e.target.value)} required />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t.admin.sex}</Label>
               <select value={form.sex} onChange={(e) => set('sex', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                <option value="M">M</option><option value="F">F</option>
+                <option value="M">M (Masculin)</option>
+                <option value="F">F (Féminin)</option>
               </select>
             </div>
-             <div className="space-y-1.5">
-               <Label>{t.admin.function}</Label>
-               <Input value={form.role} onChange={(e) => set('role', e.target.value)} />
-             </div>
-           </div>
-           <div className="grid grid-cols-2 gap-3">
-             <div className="space-y-1.5">
-                <Label>Ordre d&apos;affichage</Label>
-               <Input type="number" value={form.displayOrder} onChange={(e) => set('displayOrder', e.target.value)} />
-             </div>
-             <div className="space-y-1.5">
-               <Label>Désignation</Label>
-               <Input value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="ex: Trésorier" />
-             </div>
-           </div>
-           <div className="grid grid-cols-2 gap-3">
-             <div className="space-y-1.5">
-               <Label>{t.admin.phone}</Label>
-               <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} />
-             </div>
-             <div className="space-y-1.5">
-               <Label>{t.admin.status}</Label>
-               <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                 <option value="active">{t.admin.active}</option>
-                 <option value="inactive">{t.admin.inactive}</option>
-               </select>
-             </div>
-           </div>
-           <div className="space-y-1.5">
-             <Label>{t.admin.email}</Label>
-             <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
-           </div>
-           <div className="space-y-1.5">
-             <Label>{t.admin.address}</Label>
-              <Textarea value={form.address} onChange={(e) => set('address', e.target.value)} />
+            <div className="space-y-1.5">
+              <Label>{t.admin.function}</Label>
+              <Input value={form.role} onChange={(e) => set('role', e.target.value)} placeholder="ex: Coordinateur, Responsable" />
             </div>
-           <div className="space-y-1.5">
-             <Label>Description</Label>
-             <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} />
-           </div>
-         </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t.admin.phone}</Label>
+              <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+261 34 ..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ordre d&apos;affichage</Label>
+              <Input type="number" value={form.displayOrder} onChange={(e) => set('displayOrder', e.target.value)} min={1} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t.admin.email}</Label>
+              <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="contact@rekoma.mg" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t.admin.status}</Label>
+              <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+                <option value="active">{t.admin.active}</option>
+                <option value="inactive">{t.admin.inactive}</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t.admin.address}</Label>
+            <Input value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Adresse à Midongy Atsimo" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Description / Bio</Label>
+            <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Courte biographie ou responsabilités..." />
+          </div>
+        </div>
         <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
           <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }))}>{t.admin.cancel}</button>
           <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}>

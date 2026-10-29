@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma.js'
 import { roleCapabilities, resolvePermissions, ROLE_LABELS, hasPermission } from '../lib/permissions.js'
 import { sendEmail, passwordResetEmail } from '../utils/mail.js'
