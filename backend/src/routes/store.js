@@ -2,6 +2,7 @@ import express from 'express'
 import {
   createOrder,
   createProduct,
+  deleteProduct,
   listOrders,
   listProducts,
   listProductsForAdmin,
@@ -17,6 +18,7 @@ router.get('/products', listProducts)
 router.get('/products/manage', requirePermission('manage_products'), listProductsForAdmin)
 router.post('/products', requirePermission('manage_products'), createProduct)
 router.patch('/products/:id', requirePermission('manage_products'), updateProduct)
+router.delete('/products/:id', requirePermission('manage_products'), deleteProduct)
 router.post('/orders', (req, res, next) => {
   const phone = String(req.body?.phone || '').replace(/\D/g, '')
   const limit = rateLimit(phone ? `store-order:${phone}` : `store-order-ip:${req.ip}`)

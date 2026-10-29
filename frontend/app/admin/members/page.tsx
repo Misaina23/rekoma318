@@ -1,13 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Search, Plus, Pencil, Trash2, Download, X, Check, UserRound } from 'lucide-react'
+import { Search, Plus, Pencil, Trash2, Download, X, Check, UserRound, Phone, Mail } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 type Member = {
@@ -67,7 +66,9 @@ export default function MembersPage() {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -117,41 +118,54 @@ export default function MembersPage() {
     }
   }
 
-  function openCreateUser(m: Member) {
-    setUserTarget(m)
-  }
-
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{t.admin.nav.members}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Les membres ayant le statut « Actif » sont automatiquement affichés sur la page publique Gouvernance.
+          <h1 className="text-xl font-bold sm:text-2xl">{t.admin.nav.members}</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Les membres ayant le statut « Actif » apparaissent automatiquement sur la page publique Gouvernance.
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={exportCsv} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+          <button
+            onClick={exportCsv}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-[44px] flex-1 sm:min-h-[38px] sm:flex-none')}
+          >
             <Download className="h-4 w-4" /> CSV
           </button>
           <button
-            onClick={() => { setEditing(null); setShowForm(true) }}
-            className={cn(buttonVariants({ size: 'sm' }))}
+            onClick={() => {
+              setEditing(null)
+              setShowForm(true)
+            }}
+            className={cn(buttonVariants({ size: 'sm' }), 'min-h-[44px] flex-1 sm:min-h-[38px] sm:flex-none')}
           >
             <Plus className="h-4 w-4" /> {t.admin.new}
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }} placeholder={t.admin.search} className="pl-9" />
+          <Input
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(1)
+            }}
+            placeholder={t.admin.search}
+            className="pl-9"
+          />
         </div>
         <select
           value={status}
-          onChange={(e) => { setStatus(e.target.value as any); setPage(1) }}
-          className="h-11 rounded-xl border border-input bg-background px-3 text-sm"
+          onChange={(e) => {
+            setStatus(e.target.value as any)
+            setPage(1)
+          }}
+          className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm sm:w-48"
         >
           <option value="all">{t.admin.status}</option>
           <option value="active">{t.admin.active}</option>
@@ -159,13 +173,120 @@ export default function MembersPage() {
         </select>
       </div>
 
-      <Card>
+      {/* Mobile Native Cards View (< md) */}
+      <div className="space-y-3 md:hidden">
+        {loading && view.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              Chargement des membres...
+            </CardContent>
+          </Card>
+        )}
+        {!loading && view.length === 0 && (
+          <Card>
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              {t.search.empty}
+            </CardContent>
+          </Card>
+        )}
+        {view.map((m) => {
+          const initials = `${(m.firstName?.[0] || 'R').toUpperCase()}${(m.lastName?.[0] || 'K').toUpperCase()}`
+          const orderNum = m.displayOrder && m.displayOrder < 999 ? `#${m.displayOrder}` : null
+          return (
+            <Card key={m.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-sm font-bold text-primary">
+                    {m.photo ? (
+                      <img src={m.photo} alt={`${m.firstName} ${m.lastName}`} className="h-full w-full rounded-2xl object-cover" />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3 className="truncate text-base font-bold text-foreground">
+                        {m.firstName} {m.lastName}
+                      </h3>
+                      {orderNum && (
+                        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+                          {orderNum}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-sm font-medium text-primary">
+                      {m.designation || m.role || 'Membre'}
+                    </p>
+                    {m.designation && m.role && m.designation !== m.role && (
+                      <p className="text-xs text-muted-foreground">{m.role}</p>
+                    )}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className={m.status === 'active' ? 'font-semibold text-primary' : 'text-muted-foreground'}>
+                        {m.status === 'active' ? `${t.admin.active} · Gouvernance` : `${t.admin.inactive} · Masqué`}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>{m.sex === 'F' ? 'Femme' : 'Homme'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {(m.phone || m.email) && (
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border/70 pt-2.5 text-xs text-muted-foreground">
+                    {m.phone && (
+                      <a href={`tel:${m.phone}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                        <Phone className="h-3.5 w-3.5 text-primary" />
+                        <span className="tabular-nums">{m.phone}</span>
+                      </a>
+                    )}
+                    {m.email && (
+                      <a href={`mailto:${m.email}`} className="inline-flex min-w-0 items-center gap-1.5 hover:text-foreground">
+                        <Mail className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="truncate">{m.email}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(m)
+                      setShowForm(true)
+                    }}
+                    className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Modifier
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserTarget(m)}
+                    className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+                  >
+                    <UserRound className="h-3.5 w-3.5" /> Compte
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(m.id)}
+                    className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 px-2 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/15"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Desktop Data Table View (>= md) */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-border text-left text-muted-foreground">
                 <tr>
-                  <th className="p-4 font-medium w-14">#</th>
+                  <th className="w-14 p-4 font-medium">#</th>
                   <th className="p-4 font-medium">{t.admin.lastName}</th>
                   <th className="p-4 font-medium">{t.admin.function} / Gouvernance</th>
                   <th className="p-4 font-medium">{t.admin.phone}</th>
@@ -176,33 +297,51 @@ export default function MembersPage() {
               </thead>
               <tbody>
                 {view.map((m) => (
-                  <tr key={m.id} className="border-b border-border last:border-0">
-                    <td className="p-4 text-xs font-mono text-muted-foreground">
+                  <tr key={m.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
+                    <td className="p-4 font-mono text-xs text-muted-foreground tabular-nums">
                       {m.displayOrder && m.displayOrder < 999 ? m.displayOrder : '—'}
                     </td>
-                    <td className="p-4 font-medium">{m.firstName} {m.lastName}</td>
+                    <td className="p-4 font-medium">
+                      {m.firstName} {m.lastName}
+                    </td>
                     <td className="p-4">
                       <div className="font-medium text-foreground">{m.designation || m.role || '—'}</div>
                       {m.designation && m.role && m.designation !== m.role && (
                         <div className="text-xs text-muted-foreground">{m.role}</div>
                       )}
                     </td>
-                    <td className="p-4 text-muted-foreground">{m.phone || '—'}</td>
+                    <td className="p-4 text-muted-foreground tabular-nums">{m.phone || '—'}</td>
                     <td className="p-4 text-muted-foreground">{m.email || '—'}</td>
-                    <td className="p-4">
-                      <Badge variant={m.status === 'active' ? 'default' : 'muted'}>
-                        {m.status === 'active' ? `${t.admin.active} (Gouvernance)` : `${t.admin.inactive} (Masqué)`}
-                      </Badge>
+                    <td className="p-4 text-xs">
+                      <span className={m.status === 'active' ? 'font-semibold text-primary' : 'text-muted-foreground'}>
+                        {m.status === 'active' ? `${t.admin.active} · Gouvernance` : `${t.admin.inactive} · Masqué`}
+                      </span>
                     </td>
                     <td className="p-4">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => { setEditing(m); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary" aria-label={t.admin.edit}>
+                        <button
+                          onClick={() => {
+                            setEditing(m)
+                            setShowForm(true)
+                          }}
+                          className="rounded-lg p-2 hover:bg-secondary"
+                          aria-label={t.admin.edit}
+                        >
                           <Pencil className="h-4 w-4" />
                         </button>
-                        <button onClick={() => openCreateUser(m)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Créer un utilisateur" aria-label="Créer un utilisateur">
+                        <button
+                          onClick={() => setUserTarget(m)}
+                          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+                          title="Créer un utilisateur"
+                          aria-label="Créer un utilisateur"
+                        >
                           <UserRound className="h-4 w-4" />
                         </button>
-                        <button onClick={() => remove(m.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}>
+                        <button
+                          onClick={() => remove(m.id)}
+                          className="rounded-lg p-2 text-destructive hover:bg-secondary"
+                          aria-label={t.admin.delete}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
@@ -210,10 +349,18 @@ export default function MembersPage() {
                   </tr>
                 ))}
                 {!loading && view.length === 0 && (
-                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">{t.search.empty}</td></tr>
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      {t.search.empty}
+                    </td>
+                  </tr>
                 )}
                 {loading && view.length === 0 && (
-                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Chargement des membres...</td></tr>
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      Chargement des membres...
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -222,10 +369,24 @@ export default function MembersPage() {
       </Card>
 
       {pages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>{t.admin.back}</button>
-          <span className="text-sm text-muted-foreground">{page} / {pages}</span>
-          <button disabled={page === pages} onClick={() => setPage((p) => p + 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>{t.admin.page}</button>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-[42px] px-4')}
+          >
+            {t.admin.back}
+          </button>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            {page} / {pages}
+          </span>
+          <button
+            disabled={page === pages}
+            onClick={() => setPage((p) => p + 1)}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-[42px] px-4')}
+          >
+            {t.admin.page}
+          </button>
         </div>
       )}
 
@@ -233,7 +394,10 @@ export default function MembersPage() {
         <MemberForm
           member={editing}
           onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); load() }}
+          onSaved={() => {
+            setShowForm(false)
+            load()
+          }}
         />
       )}
 
@@ -267,7 +431,9 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
   })
   const [saving, setSaving] = useState(false)
 
-  function set(k: string, v: string | number) { setForm((f) => ({ ...f, [k]: v })) }
+  function set(k: string, v: string | number) {
+    setForm((f) => ({ ...f, [k]: v }))
+  }
 
   async function submit() {
     if (!form.firstName.trim() || !form.lastName.trim()) {
@@ -309,14 +475,27 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-foreground/45 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl pb-safe sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="font-semibold">{member ? t.admin.edit : t.admin.new}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t.admin.firstName}</Label>
               <Input value={form.firstName} onChange={(e) => set('firstName', e.target.value)} required />
@@ -326,10 +505,14 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
               <Input value={form.lastName} onChange={(e) => set('lastName', e.target.value)} required />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t.admin.sex}</Label>
-              <select value={form.sex} onChange={(e) => set('sex', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+              <select
+                value={form.sex}
+                onChange={(e) => set('sex', e.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
                 <option value="M">M (Masculin)</option>
                 <option value="F">F (Féminin)</option>
               </select>
@@ -339,7 +522,7 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
               <Input value={form.role} onChange={(e) => set('role', e.target.value)} placeholder="ex: Coordinateur, Responsable" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Titre / Désignation (Gouvernance)</Label>
               <Input value={form.designation} onChange={(e) => set('designation', e.target.value)} placeholder="ex: Membre du Bureau" />
@@ -349,7 +532,7 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
               <Input value={form.photo} onChange={(e) => set('photo', e.target.value)} placeholder="https://... ou /photo.jpg" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t.admin.phone}</Label>
               <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+261 34 ..." />
@@ -359,14 +542,18 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
               <Input type="number" value={form.displayOrder} onChange={(e) => set('displayOrder', e.target.value)} min={1} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t.admin.email}</Label>
               <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="contact@rekoma.mg" />
             </div>
             <div className="space-y-1.5">
               <Label>{t.admin.status}</Label>
-              <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+              <select
+                value={form.status}
+                onChange={(e) => set('status', e.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
                 <option value="active">{t.admin.active} (Affiché sur Gouvernance)</option>
                 <option value="inactive">{t.admin.inactive} (Masqué sur Gouvernance)</option>
               </select>
@@ -381,9 +568,11 @@ function MemberForm({ member, onClose, onSaved }: { member: Member | null; onClo
             <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Courte biographie ou responsabilités..." />
           </div>
         </div>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }))}>{t.admin.cancel}</button>
-          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}>
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
+          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[46px] w-full sm:w-auto')}>
+            {t.admin.cancel}
+          </button>
+          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}), 'min-h-[46px] w-full sm:w-auto')}>
             <Check className="h-4 w-4" /> {t.admin.save}
           </button>
         </div>
@@ -409,7 +598,7 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
       headers: validToken ? { authorization: `Bearer ${validToken}` } : {},
       credentials: 'include',
     })
-      .then(r => r.ok ? r.json() : [])
+      .then((r) => (r.ok ? r.json() : []))
       .then(setRoles)
       .catch(() => {})
   }, [])
@@ -442,23 +631,46 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-foreground/45 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl pb-safe sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="font-semibold">Créer un utilisateur</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
-          <p className="text-sm text-muted-foreground">Membre : <strong>{member.firstName} {member.lastName}</strong></p>
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <p className="text-sm text-muted-foreground">
+            Membre : <strong className="text-foreground">{member.firstName} {member.lastName}</strong>
+          </p>
           <div className="space-y-1.5">
             <Label>Email</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email du membre" />
           </div>
           <div className="space-y-1.5">
             <Label>Rôle</Label>
-            <select value={roleId} onChange={(e) => setRoleId(e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
+            <select
+              value={roleId}
+              onChange={(e) => setRoleId(e.target.value)}
+              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+            >
               <option value="">Sélectionner un rôle</option>
-              {roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+              {roles.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="space-y-1.5">
@@ -466,14 +678,16 @@ function CreateUserModal({ member, onClose, onSaved }: { member: Member; onClose
             <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="généré si vide" />
           </div>
           {tempPwd && (
-            <div className="rounded-lg bg-secondary p-3 text-sm">
-              Mot de passe temporaire : <code>{tempPwd}</code>
+            <div className="rounded-xl bg-secondary p-3 text-sm">
+              Mot de passe temporaire : <code className="font-mono font-semibold">{tempPwd}</code>
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }))}>{t.admin.cancel}</button>
-          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}>
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
+          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[46px] w-full sm:w-auto')}>
+            {t.admin.cancel}
+          </button>
+          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}), 'min-h-[46px] w-full sm:w-auto')}>
             <Check className="h-4 w-4" /> Créer
           </button>
         </div>

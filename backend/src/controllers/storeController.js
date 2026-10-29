@@ -169,18 +169,10 @@ const DEFAULT_STORE_PRODUCTS = [
 
 async function ensureDefaultCatalogue() {
   try {
+    const count = await prisma.storeProduct.count()
+    if (count > 0) return
     for (const def of DEFAULT_STORE_PRODUCTS) {
-      const existing = await prisma.storeProduct.findFirst({
-        where: { OR: [{ id: def.id }, { slug: def.slug }] },
-      })
-      if (!existing) {
-        await prisma.storeProduct.create({ data: def }).catch(() => null)
-      } else if ((!Array.isArray(existing.sizes) || existing.sizes.length === 0) && def.sizes.length > 0) {
-        await prisma.storeProduct.update({
-          where: { id: existing.id },
-          data: { sizes: def.sizes },
-        }).catch(() => null)
-      }
+      await prisma.storeProduct.create({ data: def }).catch(() => null)
     }
   } catch {
     // Ignore when running against read-only / mock DB
@@ -190,21 +182,32 @@ async function ensureDefaultCatalogue() {
 export async function listProducts(_req, res) {
   await ensureDefaultCatalogue()
   const items = await prisma.storeProduct.findMany({
-    where: { published: true, active: true },
+    where: {
+      published: true,
+      active: true,
+      NOT: { slug: { startsWith: 'deleted-' } },
+    },
     orderBy: { createdAt: 'asc' },
   })
-  res.json({ items: items.length > 0 ? items : DEFAULT_STORE_PRODUCTS })
+  res.json({ items })
 }
 
 export async function listProductsForAdmin(_req, res) {
   await ensureDefaultCatalogue()
-  const items = await prisma.storeProduct.findMany({ orderBy: { createdAt: 'asc' } })
+  const items = await prisma.storeProduct.findMany({
+    where: { NOT: { slug: { startsWith: 'deleted-' } } },
+    orderBy: { createdAt: 'asc' },
+  })
   res.json({ items })
 }
 
 export async function createProduct(req, res) {
   const { data, error } = validateProductInput(req.body || {})
   if (error) return res.status(400).json({ success: false, error })
+  const existingSlug = await prisma.storeProduct.findUnique({ where: { slug: data.slug } }).catch(() => null)
+  if (existingSlug) {
+    data.slug = `${data.slug.slice(0, 160)}-${Date.now().toString(36)}`
+  }
   const item = await prisma.storeProduct.create({ data })
   res.status(201).json({ success: true, item })
 }
@@ -213,8 +216,23 @@ export async function updateProduct(req, res) {
   const { data, error } = validateProductInput(req.body || {}, true)
   if (error) return res.status(400).json({ success: false, error })
   if (!Object.keys(data).length) return res.status(400).json({ success: false, error: 'Aucune modification à enregistrer.' })
+  if (data.slug) {
+    const collision = await prisma.storeProduct
+      .findFirst({ where: { slug: data.slug, NOT: { id: req.params.id } } })
+      .catch(() => null)
+    if (collision) {
+      data.slug = `${data.slug.slice(0, 160)}-${Date.now().toString(36)}`
+    }
+  }
   const item = await prisma.storeProduct.update({ where: { id: req.params.id }, data })
   res.json({ success: true, item })
+}
+
+export async function deleteProduct(req, res) {
+  const existing = await prisma.storeProduct.findUnique({ where: { id: req.params.id } })
+  if (!existing) return res.status(404).json({ success: false, error: 'Article introuvable.' })
+  await prisma.storeProduct.delete({ where: { id: req.params.id } })
+  res.json({ success: true, id: req.params.id })
 }
 
 export async function createOrder(req, res) {

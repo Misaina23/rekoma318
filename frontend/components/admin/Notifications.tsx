@@ -37,11 +37,11 @@ export function Notifications() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={t.admin.notifications}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
       >
         <Bell className="h-4 w-4" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground tabular-nums">
             {unread}
           </span>
         )}
@@ -52,7 +52,8 @@ export function Notifications() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            className="absolute right-0 mt-2 w-80 overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
+            transition={{ duration: 0.16 }}
+            className="fixed inset-x-3 top-16 z-50 overflow-hidden rounded-2xl border border-border bg-card shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80"
           >
             <div className="border-b border-border px-4 py-3 text-sm font-semibold">{t.admin.notifications}</div>
             <div className="max-h-80 overflow-y-auto">
@@ -64,12 +65,12 @@ export function Notifications() {
                     key={m.id}
                     href="/admin/messages"
                     onClick={() => setOpen(false)}
-                    className="flex gap-3 border-b border-border px-4 py-3 text-sm last:border-0 hover:bg-secondary"
+                    className="flex min-h-[52px] items-start gap-3 border-b border-border px-4 py-3 text-sm last:border-0 hover:bg-secondary"
                   >
                     <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <div className="min-w-0">
-                      <p className="font-medium">{m.name}</p>
-                      <p className="truncate text-muted-foreground">{m.subject || t.contact.message}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{m.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{m.subject || t.contact.message}</p>
                     </div>
                   </Link>
                 ))

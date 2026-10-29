@@ -73,10 +73,16 @@
     @apply bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent;
   }
   .section-pad {
-    @apply py-20 md:py-28;
+    @apply py-12 sm:py-20 md:py-28;
   }
   .container-tight {
     @apply container max-w-5xl;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;

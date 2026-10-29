@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Menu, Search } from 'lucide-react'
+import { Menu, Search, Home, Compass, ShoppingBag, HeartHandshake, LayoutGrid } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { Logo } from './Logo'
 import { ThemeToggle } from './ThemeToggle'
@@ -41,10 +41,17 @@ export function Header() {
     [t.nav.about, t.nav.articles, t.nav.contact, t.nav.documents, t.nav.governance, t.nav.home, t.nav.pdima]
   )
 
+  const mobileTabs = [
+    { href: '/', label: 'Accueil', icon: Home },
+    { href: '/pdima', label: 'PDIMA', icon: Compass },
+    { href: '/articles', label: 'Boutique', icon: ShoppingBag },
+    { href: '/don', label: 'Soutenir', icon: HeartHandshake },
+  ]
+
   return (
     <>
       <header className="sticky top-0 z-50 border-b border-border/70 bg-background/95 backdrop-blur-md">
-        <div className="container flex h-[72px] items-center justify-between gap-4">
+        <div className="container flex h-[54px] items-center justify-between gap-3 md:h-[72px] md:gap-4">
           <Logo priority />
 
           <nav className="hidden items-center gap-2 xl:flex">
@@ -56,7 +63,7 @@ export function Header() {
                   href={l.href}
                   prefetch
                   className={cn(
-                    'relative px-2.5 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors',
+                    'relative whitespace-nowrap px-2.5 py-2 text-xs font-medium transition-colors',
                     active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
@@ -69,11 +76,11 @@ export function Header() {
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => setSearchOpen(true)}
-              aria-label="search"
-              className="flex h-10 w-10 items-center justify-center border border-border bg-transparent text-foreground transition-colors hover:bg-secondary"
+              aria-label="Rechercher"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-transparent text-foreground transition-colors hover:bg-secondary"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -82,20 +89,59 @@ export function Header() {
             <Link
               href="/admin"
               prefetch
-              className="hidden h-10 items-center border border-border px-4 text-xs font-medium uppercase tracking-[0.1em] transition-colors hover:bg-secondary md:flex"
+              className="hidden h-10 items-center whitespace-nowrap rounded-xl border border-border px-4 text-xs font-semibold transition-colors hover:bg-secondary md:flex"
             >
               {t.nav.admin}
             </Link>
             <button
               onClick={() => setMobileOpen(true)}
-              aria-label="menu"
-              className="flex h-10 w-10 items-center justify-center border border-border bg-transparent text-foreground transition-colors hover:bg-secondary xl:hidden"
+              aria-label="Menu"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-transparent text-foreground transition-colors hover:bg-secondary xl:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
           </div>
         </div>
       </header>
+
+      {/* Native Mobile Bottom Tab Bar on Smartphones */}
+      <nav
+        aria-label="Navigation principale mobile"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur-md pb-safe md:hidden"
+      >
+        <div className="grid h-14 grid-cols-5 items-center px-1">
+          {mobileTabs.map((tab) => {
+            const Icon = tab.icon
+            const active = pathname === tab.href
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  'flex h-full flex-col items-center justify-center gap-0.5 rounded-xl transition-colors',
+                  active ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="max-w-full truncate px-1 text-[10px] font-semibold leading-tight">
+                  {tab.label}
+                </span>
+              </Link>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className={cn(
+              'flex h-full flex-col items-center justify-center gap-0.5 rounded-xl transition-colors',
+              mobileOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <LayoutGrid className="h-5 w-5" />
+            <span className="px-1 text-[10px] font-semibold leading-tight">Plus</span>
+          </button>
+        </div>
+      </nav>
 
       <MobileNav
         open={mobileOpen}

@@ -15,11 +15,11 @@ export function RouteLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
+    <div className="pb-16 md:pb-0">
       <VisitorTracker />
       <Header />
       <main id="content">{children}</main>
       <Footer />
-    </>
+    </div>
   )
 }

@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Manrope } from 'next/font/google'
 import type { ReactNode } from 'react'
 import './globals.css'
-import 'sweetalert2/dist/sweetalert2.min.css'
 import { Providers } from '@/components/providers/Providers'
 import { ToastProvider } from '@/components/ui/toast'
 import { RouteLayout } from '@/components/layout/RouteLayout'
@@ -20,6 +19,15 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://rekoma-318.vercel.app'),
   title: fr.meta.title,
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    viewportFit: 'cover',
+  },
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fcfbf7' },
+    { media: '(prefers-color-scheme: dark)', color: '#0d1713' },
+  ],
   icons: {
     icon: '/logo.png',
     shortcut: '/logo.png',
@@ -37,7 +45,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${manrope.variable} min-h-screen bg-background font-sans`}>
+      <body className={`${manrope.variable} min-h-screen bg-background font-sans selection:bg-primary/20`}>
         <JsonLd />
         <GaScript />
         <a

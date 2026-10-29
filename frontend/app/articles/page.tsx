@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Minus,
   Plus,
   ShoppingBag,
@@ -38,11 +40,18 @@ type Product = {
 type BasketLine = { productId: string; quantity: number; size: string }
 const MAX_ITEM_QUANTITY = 10
 const MAX_ORDER_LINES = 10
+const ITEMS_PER_PAGE = 5
 
 type SavedOrder = {
   id: string
   total: number
   whatsappUrl: string
+}
+
+function isValidImageSrc(src?: string | null): src is string {
+  if (!src) return false
+  const s = src.trim()
+  return s.startsWith('/') || /^https?:\/\/[^/\s]+/.test(s)
 }
 
 export default function ArticlesPage() {
@@ -55,6 +64,7 @@ export default function ArticlesPage() {
   const [sizes, setSizes] = useState<Record<string, string>>({})
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [recentlyAdded, setRecentlyAdded] = useState<Record<string, boolean>>({})
 
   const [form, setForm] = useState({
@@ -90,9 +100,9 @@ export default function ArticlesPage() {
     }
   }, [basket])
 
-  // Fetch products catalogue
+  // Fetch products catalogue (always fresh so admin price/visibility updates appear immediately)
   useEffect(() => {
-    fetch('/api/store/products')
+    fetch('/api/store/products', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Catalogue indisponible')
         const data = await response.json()
@@ -156,6 +166,30 @@ export default function ArticlesPage() {
       return matchCategory && matchQuery
     })
   }, [products, selectedCategory, searchQuery])
+
+  // Reset pagination to page 1 when category or search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedCategory, searchQuery])
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE))
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredProducts, currentPage])
+
+  function goToPage(page: number) {
+    const clamped = Math.max(1, Math.min(totalPages, page))
+    setCurrentPage(clamped)
+    document.getElementById('catalogue-articles')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Subtotal and total item count
   const subtotal = useMemo(
@@ -370,7 +404,7 @@ export default function ArticlesPage() {
       </section>
 
       {/* Catalog & Filter Bar */}
-      <section className="py-10">
+      <section id="catalogue-articles" className="scroll-mt-20 py-10">
         <div className="container">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-8">
             {/* Category tabs */}
@@ -444,9 +478,9 @@ export default function ArticlesPage() {
             </div>
           )}
 
-          {/* Products Grid */}
+          {/* Products Grid (5 per page) */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProducts.map((product) => {
+            {paginatedProducts.map((product) => {
               const currentSize = sizes[product.id] || (product.sizes.length > 0 ? product.sizes[0] : '')
               const qtyInCart = getProductSizeQuantity(product.id, currentSize)
               const itemKey = `${product.id}-${currentSize}`
@@ -460,7 +494,7 @@ export default function ArticlesPage() {
                   <div>
                     {/* Product Image Stage */}
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100 dark:bg-stone-900/60">
-                      {product.imageUrl ? (
+                      {isValidImageSrc(product.imageUrl) ? (
                         <Image
                           src={product.imageUrl}
                           alt={product.name}
@@ -605,12 +639,74 @@ export default function ArticlesPage() {
               )
             })}
           </div>
+
+          {/* Pagination Controls (5 articles per page) */}
+          {!loading && !loadError && filteredProducts.length > 0 && (
+            <nav
+              aria-label="Pagination du catalogue"
+              className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-card px-5 py-4 shadow-sm sm:flex-row"
+            >
+              <p className="text-xs text-muted-foreground tabular-nums">
+                Affichage{' '}
+                <strong className="text-foreground">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}
+                </strong>
+                –
+                <strong className="text-foreground">
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)}
+                </strong>{' '}
+                sur <strong className="text-foreground">{filteredProducts.length}</strong> article
+                {filteredProducts.length > 1 ? 's' : ''}
+              </p>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage <= 1}
+                  onClick={() => goToPage(currentPage - 1)}
+                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3.5 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Précédent</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => goToPage(pageNum)}
+                      aria-current={currentPage === pageNum ? 'page' : undefined}
+                      className={cn(
+                        'flex h-[42px] w-[42px] items-center justify-center rounded-xl text-xs font-bold tabular-nums transition-all',
+                        currentPage === pageNum
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'border border-border bg-background hover:bg-muted'
+                      )}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => goToPage(currentPage + 1)}
+                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3.5 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                >
+                  <span>Suivant</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </nav>
+          )}
         </div>
       </section>
 
       {/* Floating Bottom Cart Bar (appears when items are in cart) */}
       {basket.length > 0 && (
-        <aside aria-label="Aperçu du panier" className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 w-[92%] max-w-lg rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4">
+        <aside aria-label="Aperçu du panier" className="fixed bottom-20 md:bottom-6 left-1/2 z-40 -translate-x-1/2 w-[92%] max-w-lg rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -693,7 +789,7 @@ export default function ArticlesPage() {
                     <div key={`${line.productId}-${line.size}-${idx}`} className="flex items-center gap-4 py-4">
                       {/* Thumbnail */}
                       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800">
-                        {product.imageUrl ? (
+                        {isValidImageSrc(product.imageUrl) ? (
                           <Image
                             src={product.imageUrl}
                             alt={product.name}

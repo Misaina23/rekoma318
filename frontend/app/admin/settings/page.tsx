@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ShieldCheck, KeyRound, Mail, Check, X, Users, RefreshCw, UserX, Pencil, Trash2 } from 'lucide-react'
+import { ShieldCheck, KeyRound, Mail, Check, Users, RefreshCw, UserX, Pencil, Trash2 } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,14 +16,23 @@ export default function SettingsPage() {
   const [secret, setSecret] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/profile').then((r) => r.ok && r.json()).then(setProfile).catch(() => {})
+    fetch('/api/admin/profile')
+      .then((r) => r.ok && r.json())
+      .then(setProfile)
+      .catch(() => {})
   }, [])
 
   async function call(url: string, body: any, ok: string) {
-    const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
     const d = await r.json().catch(() => ({}))
-    if (r.ok) { toast(ok, 'success'); if (d.secret) setSecret(d.secret) }
-    else toast(d.error || 'Erreur', 'error')
+    if (r.ok) {
+      toast(ok, 'success')
+      if (d.secret) setSecret(d.secret)
+    } else toast(d.error || 'Erreur', 'error')
   }
 
   if (!profile) {
@@ -35,41 +44,58 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">{t.admin.nav.settings}</h1>
+    <div className="space-y-5 sm:space-y-6">
+      <h1 className="text-xl font-bold sm:text-2xl">{t.admin.nav.settings}</h1>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Authentification</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap gap-3">
-          <button onClick={async () => {
-            const r = await fetch('/api/admin/2fa/toggle', { method: 'POST' })
-            const d = await r.json().catch(() => ({}))
-            if (r.ok) toast(`2FA ${d.twoFactorEnabled ? 'activé' : 'désactivé'}`, 'success')
-            else toast(d.error || 'Erreur', 'error')
-          }} className={cn(buttonVariants({ variant: 'outline' }))}>
+        <CardHeader>
+          <CardTitle className="text-base">Authentification</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-2.5 sm:flex sm:flex-wrap sm:gap-3">
+          <button
+            onClick={async () => {
+              const r = await fetch('/api/admin/2fa/toggle', { method: 'POST' })
+              const d = await r.json().catch(() => ({}))
+              if (r.ok) toast(`2FA ${d.twoFactorEnabled ? 'activé' : 'désactivé'}`, 'success')
+              else toast(d.error || 'Erreur', 'error')
+            }}
+            className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[44px] justify-center')}
+          >
             <KeyRound className="h-4 w-4" /> Activer 2FA
           </button>
-          <button onClick={() => call('/api/admin/verify', { code: '123456' }, 'Email vérifié (démo)')} className={cn(buttonVariants({ variant: 'outline' }))}>
+          <button
+            onClick={() => call('/api/admin/verify', { code: '123456' }, 'Email vérifié (démo)')}
+            className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[44px] justify-center')}
+          >
             <ShieldCheck className="h-4 w-4" /> Vérifier email
           </button>
-          <button onClick={() => call('/api/admin/forgot', { email: profile?.email }, 'Email envoyé (démo)')} className={cn(buttonVariants({ variant: 'outline' }))}>
+          <button
+            onClick={() => call('/api/admin/forgot', { email: profile?.email }, 'Email envoyé (démo)')}
+            className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[44px] justify-center')}
+          >
             <Mail className="h-4 w-4" /> Mot de passe oublié
           </button>
         </CardContent>
         {secret && (
           <CardContent>
             <p className="text-xs text-muted-foreground">Secret TOTP (démo) :</p>
-            <code className="block rounded-lg bg-secondary p-3 text-sm">{secret}</code>
+            <code className="block break-all rounded-xl bg-secondary p-3 font-mono text-sm">{secret}</code>
           </CardContent>
         )}
       </Card>
 
       {profile && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Profil</CardTitle></CardHeader>
-          <CardContent className="text-sm">
-            <p><span className="text-muted-foreground">Email :</span> {profile.email}</p>
-            <p><span className="text-muted-foreground">Rôle :</span> {profile.roleLabel}</p>
+          <CardHeader>
+            <CardTitle className="text-base">Profil</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p className="break-all">
+              <span className="text-muted-foreground">Email :</span> {profile.email}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Rôle :</span> {profile.roleLabel}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -82,7 +108,6 @@ export default function SettingsPage() {
 }
 
 function RolesManager() {
-  const { t } = useI18n()
   const toast = useToast()
   const [roles, setRoles] = useState<any[]>([])
   const [perms, setPerms] = useState<any[]>([])
@@ -96,17 +121,19 @@ function RolesManager() {
   async function load() {
     try {
       const [rolesR, permsR] = await Promise.all([
-        fetch('/api/admin/roles/roles').then(r => r.ok ? r.json() : []),
-        fetch('/api/admin/roles/permissions').then(r => r.ok ? r.json() : []),
+        fetch('/api/admin/roles/roles').then((r) => (r.ok ? r.json() : [])),
+        fetch('/api/admin/roles/permissions').then((r) => (r.ok ? r.json() : [])),
       ])
       setRoles(Array.isArray(rolesR) ? rolesR : [])
       setPerms(Array.isArray(permsR) ? permsR : [])
-    } catch (e) {
+    } catch {
       setRoles([])
       setPerms([])
     }
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   function openEdit(role: any) {
     setEditing(role)
@@ -134,8 +161,11 @@ function RolesManager() {
         body: JSON.stringify(body),
       })
       const d = await r.json().catch(() => ({}))
-      if (r.ok) { toast(editing ? 'Rôle mis à jour ✓' : 'Rôle créé ✓', 'success'); openCreate(); load() }
-      else toast(d.error || 'Erreur', 'error')
+      if (r.ok) {
+        toast(editing ? 'Rôle mis à jour ✓' : 'Rôle créé ✓', 'success')
+        openCreate()
+        load()
+      } else toast(d.error || 'Erreur', 'error')
     } finally {
       setSaving(false)
     }
@@ -144,52 +174,114 @@ function RolesManager() {
   async function remove(role: any) {
     if (!(await confirmDialog('Supprimer ce rôle ?'))) return
     const r = await fetch(`/api/admin/roles/roles/${role.id}`, { method: 'DELETE' })
-    if (r.ok) { toast('Rôle supprimé ✓', 'success'); load() }
-    else toast('Erreur', 'error')
+    if (r.ok) {
+      toast('Rôle supprimé ✓', 'success')
+      load()
+    } else toast('Erreur', 'error')
   }
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-base">Rôles & permissions</CardTitle>
-        <button onClick={openCreate} className={cn(buttonVariants({ size: 'sm' }))}>Nouveau rôle</button>
+        <button onClick={openCreate} className={cn(buttonVariants({ size: 'sm' }), 'min-h-[40px]')}>
+          Nouveau rôle
+        </button>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="p-2 font-medium">Nom</th>
-              <th className="p-2 font-medium">Label</th>
-              <th className="p-2 font-medium">Permissions</th>
-              <th className="p-2 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {roles.map((r) => (
-              <tr key={r.id} className="border-t border-border">
-                <td className="p-2 font-mono text-xs">{r.name}</td>
-                <td className="p-2">{r.label}</td>
-                <td className="p-2 text-xs text-muted-foreground">{r.permissionKeys?.length || 0} permissions</td>
-                <td className="p-2 text-right">
-                  <div className="flex justify-end gap-1">
-                    <button onClick={() => openEdit(r)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Éditer"><Pencil className="h-4 w-4" /></button>
-                    {!r.isSystem && <button onClick={() => remove(r)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-destructive')} title="Supprimer"><Trash2 className="h-4 w-4" /></button>}
-                  </div>
-                </td>
+      <CardContent>
+        {/* Mobile Cards View (< md) */}
+        <div className="space-y-2.5 md:hidden">
+          {roles.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted-foreground">Aucun rôle.</p>
+          )}
+          {roles.map((r) => (
+            <div key={r.id} className="rounded-2xl border border-border p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-foreground">{r.label}</p>
+                  <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                    {r.name} · {r.permissionKeys?.length || 0} permissions
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2 border-t border-border pt-2.5">
+                <button
+                  onClick={() => openEdit(r)}
+                  className="flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/50 px-3 text-xs font-semibold text-foreground hover:bg-secondary"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Éditer
+                </button>
+                {!r.isSystem && (
+                  <button
+                    onClick={() => remove(r)}
+                    className="flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 px-3 text-xs font-semibold text-destructive hover:bg-destructive/15"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full text-sm">
+            <thead className="text-left text-muted-foreground">
+              <tr>
+                <th className="p-2 font-medium">Nom</th>
+                <th className="p-2 font-medium">Label</th>
+                <th className="p-2 font-medium">Permissions</th>
+                <th className="p-2 text-right font-medium">Actions</th>
               </tr>
-            ))}
-            {roles.length === 0 && (
-              <tr><td colSpan={4} className="p-6 text-center text-muted-foreground">Aucun rôle.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {roles.map((r) => (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="p-2 font-mono text-xs">{r.name}</td>
+                  <td className="p-2">{r.label}</td>
+                  <td className="p-2 text-xs text-muted-foreground tabular-nums">
+                    {r.permissionKeys?.length || 0} permissions
+                  </td>
+                  <td className="p-2 text-right">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => openEdit(r)}
+                        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+                        title="Éditer"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      {!r.isSystem && (
+                        <button
+                          onClick={() => remove(r)}
+                          className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-destructive')}
+                          title="Supprimer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {roles.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                    Aucun rôle.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {(editing !== null || name) && (
-          <div className="mt-4 rounded-lg border border-border p-4">
+          <div className="mt-4 rounded-2xl border border-border p-4">
             <h3 className="mb-3 font-medium">{editing ? 'Éditer le rôle' : 'Nouveau rôle'}</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Nom (system)</Label>
+                <Label>Nom (système)</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!!editing} />
               </div>
               <div className="space-y-1.5">
@@ -203,22 +295,33 @@ function RolesManager() {
             </div>
             <div className="mt-3 space-y-1.5">
               <Label>Permissions</Label>
-              <div className="grid grid-cols-2 gap-1">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {perms.map((p: any) => (
-                  <label key={p.id} className="flex items-center gap-2 text-xs">
-                    <input type="checkbox" checked={selectedPerms.has(p.key)} onChange={(e) => {
-                      const next = new Set(selectedPerms)
-                      if (e.target.checked) { next.add(p.key) } else { next.delete(p.key) }
-                      setSelectedPerms(next)
-                    }} />
+                  <label key={p.id} className="flex min-h-[36px] items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={selectedPerms.has(p.key)}
+                      onChange={(e) => {
+                        const next = new Set(selectedPerms)
+                        if (e.target.checked) {
+                          next.add(p.key)
+                        } else {
+                          next.delete(p.key)
+                        }
+                        setSelectedPerms(next)
+                      }}
+                      className="h-4 w-4"
+                    />
                     {p.label}
                   </label>
                 ))}
               </div>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={openCreate} className={cn(buttonVariants({ variant: 'outline' }))}>Annuler</button>
-              <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}>
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button onClick={openCreate} className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[44px]')}>
+                Annuler
+              </button>
+              <button onClick={submit} disabled={saving} className={cn(buttonVariants({}), 'min-h-[44px]')}>
                 <Check className="h-4 w-4" /> {editing ? 'Mettre à jour' : 'Créer'}
               </button>
             </div>
@@ -230,7 +333,6 @@ function RolesManager() {
 }
 
 function UsersManager() {
-  const { t } = useI18n()
   const toast = useToast()
   const [users, setUsers] = useState<any[]>([])
   const [roles, setRoles] = useState<any[]>([])
@@ -241,28 +343,30 @@ function UsersManager() {
   async function load() {
     try {
       const [usersR, rolesR, permsR] = await Promise.all([
-        fetch('/api/admin/users').then(r => r.ok ? r.json() : []),
-        fetch('/api/admin/roles/roles').then(r => r.ok ? r.json() : []),
-        fetch('/api/admin/roles/permissions').then(r => r.ok ? r.json() : []),
+        fetch('/api/admin/users').then((r) => (r.ok ? r.json() : [])),
+        fetch('/api/admin/roles/roles').then((r) => (r.ok ? r.json() : [])),
+        fetch('/api/admin/roles/permissions').then((r) => (r.ok ? r.json() : [])),
       ])
       setUsers(Array.isArray(usersR) ? usersR : [])
       setRoles(Array.isArray(rolesR) ? rolesR : [])
       setPerms(Array.isArray(permsR) ? permsR : [])
-    } catch (e) {
+    } catch {
       setUsers([])
       setRoles([])
       setPerms([])
     }
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
   function openPerms(u: any) {
-    setEditId(u.id)
+    setEditId((prev) => (prev === u.id ? null : u.id))
     const map: Record<string, boolean> = {}
     for (const c of perms.map((p: any) => p.key)) map[c] = false
     if (Array.isArray(u.permissions)) {
       for (const c of u.permissions) {
-        if (map.hasOwnProperty(c)) map[c] = true
+        if (Object.prototype.hasOwnProperty.call(map, c)) map[c] = true
       }
     }
     setCaps(map)
@@ -275,8 +379,11 @@ function UsersManager() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ permissions }),
     })
-    if (r.ok) { toast('Permissions enregistrées ✓', 'success'); setEditId(null); load() }
-    else toast('Erreur', 'error')
+    if (r.ok) {
+      toast('Permissions enregistrées ✓', 'success')
+      setEditId(null)
+      load()
+    } else toast('Erreur', 'error')
   }
 
   async function setRole(u: any, roleId: string) {
@@ -285,8 +392,10 @@ function UsersManager() {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ roleId }),
     })
-    if (r.ok) { toast('Rôle mis à jour ✓', 'success'); load() }
-    else toast('Erreur', 'error')
+    if (r.ok) {
+      toast('Rôle mis à jour ✓', 'success')
+      load()
+    } else toast('Erreur', 'error')
   }
 
   async function toggleActive(u: any) {
@@ -302,7 +411,7 @@ function UsersManager() {
   async function resetPwd(u: any) {
     const r = await fetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
     const d = await r.json().catch(() => ({}))
-    if (r.ok) toast(`Mot de passe réinitialisé: ${d.temporaryPassword}`, 'success')
+    if (r.ok) toast(`Mot de passe réinitialisé : ${d.temporaryPassword}`, 'success')
     else toast('Erreur', 'error')
   }
 
@@ -316,62 +425,202 @@ function UsersManager() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4" /> Utilisateurs du tableau de bord</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Users className="h-4 w-4" /> Utilisateurs du tableau de bord
+        </CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground">
-            <tr>
-              <th className="p-2 font-medium">Email</th>
-              <th className="p-2 font-medium">Rôle</th>
-              <th className="p-2 font-medium">Dernier accès</th>
-              <th className="p-2 font-medium">Statut</th>
-              <th className="p-2 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="border-t border-border align-top">
-                <td className="p-2">{u.email}<br /><span className="text-xs text-muted-foreground">{u.name}</span></td>
-                <td className="p-2">
-                  <select value={u.roleId || u.role} onChange={(e) => setRole(u, e.target.value)} className="h-9 rounded-lg border border-input bg-background px-2 text-sm">
-                    {roles.map((r: any) => <option key={r.id} value={r.id}>{r.label}</option>)}
-                  </select>
-                </td>
-                <td className="p-2 text-xs text-muted-foreground">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : '—'}</td>
-                <td className="p-2">
-                  <button onClick={() => toggleActive(u)} className={cn('rounded-full px-3 py-1 text-xs font-medium', u.active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
-                    {u.active ? 'Actif' : 'Inactif'}
-                  </button>
-                </td>
-                <td className="p-2">
-                  <div className="flex justify-end gap-1">
-                    <button onClick={() => openPerms(u)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Permissions"><ShieldCheck className="h-4 w-4" /></button>
-                    <button onClick={() => resetPwd(u)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))} title="Réinitialiser le mot de passe"><RefreshCw className="h-4 w-4" /></button>
-                    <button onClick={() => remove(u)} className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-destructive')} title="Supprimer"><UserX className="h-4 w-4" /></button>
-                  </div>
-                  {editId === u.id && (
-                    <div className="mt-2 rounded-lg border border-border p-3">
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">Permissions personnalisées</p>
-                      <div className="grid grid-cols-2 gap-1">
-                        {perms.map((p: any) => (
-                          <label key={p.id} className="flex items-center gap-2 text-xs">
-                            <input type="checkbox" checked={!!caps[p.key]} onChange={(e) => setCaps((prev) => ({ ...prev, [p.key]: e.target.checked }))} />
-                            {p.label}
-                          </label>
-                        ))}
-                      </div>
-                      <button onClick={() => savePerms(u)} className={cn(buttonVariants({ size: 'sm' }), 'mt-2')}>Enregistrer</button>
-                    </div>
+      <CardContent>
+        {/* Mobile Cards View (< md) */}
+        <div className="space-y-3 md:hidden">
+          {users.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted-foreground">Aucun utilisateur.</p>
+          )}
+          {users.map((u) => (
+            <div key={u.id} className="space-y-3 rounded-2xl border border-border p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-foreground">{u.email}</p>
+                  {u.name && <p className="truncate text-xs text-muted-foreground">{u.name}</p>}
+                  <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                    Dernier accès : {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('fr-FR') : '—'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => toggleActive(u)}
+                  className={cn(
+                    'min-h-[36px] shrink-0 rounded-xl px-3 text-xs font-semibold',
+                    u.active ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'
                   )}
-                </td>
+                >
+                  {u.active ? 'Actif' : 'Inactif'}
+                </button>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-muted-foreground">Rôle</label>
+                <select
+                  value={u.roleId || u.role}
+                  onChange={(e) => setRole(u, e.target.value)}
+                  className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+                >
+                  {roles.map((r: any) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 border-t border-border pt-2.5">
+                <button
+                  onClick={() => openPerms(u)}
+                  className="flex min-h-[42px] items-center justify-center gap-1 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground hover:bg-secondary"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" /> Accès
+                </button>
+                <button
+                  onClick={() => resetPwd(u)}
+                  className="flex min-h-[42px] items-center justify-center gap-1 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground hover:bg-secondary"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> MDP
+                </button>
+                <button
+                  onClick={() => remove(u)}
+                  className="flex min-h-[42px] items-center justify-center gap-1 rounded-xl border border-destructive/30 bg-destructive/10 px-2 text-xs font-semibold text-destructive hover:bg-destructive/15"
+                >
+                  <UserX className="h-3.5 w-3.5" /> Suppr.
+                </button>
+              </div>
+
+              {editId === u.id && (
+                <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Permissions personnalisées</p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {perms.map((p: any) => (
+                      <label key={p.id} className="flex min-h-[34px] items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={!!caps[p.key]}
+                          onChange={(e) => setCaps((prev) => ({ ...prev, [p.key]: e.target.checked }))}
+                          className="h-4 w-4"
+                        />
+                        {p.label}
+                      </label>
+                    ))}
+                  </div>
+                  <button onClick={() => savePerms(u)} className={cn(buttonVariants({ size: 'sm' }), 'mt-3 min-h-[42px] w-full')}>
+                    Enregistrer
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Desktop Table View (>= md) */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full text-sm">
+            <thead className="text-left text-muted-foreground">
+              <tr>
+                <th className="p-2 font-medium">Email</th>
+                <th className="p-2 font-medium">Rôle</th>
+                <th className="p-2 font-medium">Dernier accès</th>
+                <th className="p-2 font-medium">Statut</th>
+                <th className="p-2 text-right font-medium">Actions</th>
               </tr>
-            ))}
-            {users.length === 0 && (
-              <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Aucun utilisateur.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="border-t border-border align-top">
+                  <td className="p-2">
+                    {u.email}
+                    <br />
+                    <span className="text-xs text-muted-foreground">{u.name}</span>
+                  </td>
+                  <td className="p-2">
+                    <select
+                      value={u.roleId || u.role}
+                      onChange={(e) => setRole(u, e.target.value)}
+                      className="h-9 rounded-lg border border-input bg-background px-2 text-sm"
+                    >
+                      {roles.map((r: any) => (
+                        <option key={r.id} value={r.id}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="p-2 text-xs text-muted-foreground tabular-nums">
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('fr-FR') : '—'}
+                  </td>
+                  <td className="p-2">
+                    <button
+                      onClick={() => toggleActive(u)}
+                      className={cn(
+                        'rounded-lg px-3 py-1 text-xs font-semibold',
+                        u.active ? 'bg-primary/12 text-primary' : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {u.active ? 'Actif' : 'Inactif'}
+                    </button>
+                  </td>
+                  <td className="p-2">
+                    <div className="flex justify-end gap-1">
+                      <button
+                        onClick={() => openPerms(u)}
+                        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+                        title="Permissions"
+                      >
+                        <ShieldCheck className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => resetPwd(u)}
+                        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }))}
+                        title="Réinitialiser le mot de passe"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => remove(u)}
+                        className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), 'text-destructive')}
+                        title="Supprimer"
+                      >
+                        <UserX className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {editId === u.id && (
+                      <div className="mt-2 rounded-xl border border-border p-3">
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">Permissions personnalisées</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {perms.map((p: any) => (
+                            <label key={p.id} className="flex items-center gap-2 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={!!caps[p.key]}
+                                onChange={(e) => setCaps((prev) => ({ ...prev, [p.key]: e.target.checked }))}
+                              />
+                              {p.label}
+                            </label>
+                          ))}
+                        </div>
+                        <button onClick={() => savePerms(u)} className={cn(buttonVariants({ size: 'sm' }), 'mt-2')}>
+                          Enregistrer
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-6 text-center text-muted-foreground">
+                    Aucun utilisateur.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   )

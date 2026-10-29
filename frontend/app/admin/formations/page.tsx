@@ -1,13 +1,12 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
-import { Search, Plus, Pencil, Trash2, X, Check, GraduationCap, Users, Download, FileText } from 'lucide-react'
+import { useEffect, useState, useMemo, useRef, useCallback, type ReactNode } from 'react'
+import { Search, Plus, Pencil, Trash2, X, Check, Users, FileText } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast, confirmDialog } from '@/components/ui/toast'
 import { Input, Label, Textarea } from '@/components/ui/input'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 function getBrowserAuthHeaders(extra: Record<string, string> = {}) {
@@ -34,10 +33,24 @@ type Formation = {
   evaluation: number
   certificate: boolean
   status: 'planned' | 'ongoing' | 'done'
-  beneficiaries?: Array<{ id: string; firstName: string; lastName: string; cin?: string | null; phone?: string | null; address?: string | null; status?: string | null; attendance?: string | null }>
+  beneficiaries?: Array<{
+    id: string
+    firstName: string
+    lastName: string
+    cin?: string | null
+    phone?: string | null
+    address?: string | null
+    status?: string | null
+    attendance?: string | null
+  }>
 }
 
 const STATUS: Formation['status'][] = ['planned', 'ongoing', 'done']
+const STATUS_LABELS: Record<Formation['status'], string> = {
+  planned: 'Planifiée',
+  ongoing: 'En cours',
+  done: 'Terminée',
+}
 
 export default function FormationsPage() {
   const { t } = useI18n()
@@ -95,7 +108,9 @@ export default function FormationsPage() {
     }
   }, [q])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+  }, [load])
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
@@ -132,7 +147,9 @@ export default function FormationsPage() {
       toast('Aucun bénéficiaire dans cette formation.', 'error')
       return
     }
-    const confirmed = await confirmDialog(`Cette formation contient ${formation.beneficiaries.length} bénéficiaire(s). Voulez-vous générer les ${formation.beneficiaries.length} attestation(s) ?`)
+    const confirmed = await confirmDialog(
+      `Cette formation contient ${formation.beneficiaries.length} bénéficiaire(s). Voulez-vous générer les ${formation.beneficiaries.length} attestation(s) ?`
+    )
     if (!confirmed) return
 
     try {
@@ -161,80 +178,192 @@ export default function FormationsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t.admin.nav.formations}</h1>
-        <button onClick={() => { setEditing(null); setShowForm(true) }} className={cn(buttonVariants({ size: 'sm' }))}>
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-xl font-bold sm:text-2xl">{t.admin.nav.formations}</h1>
+        <button
+          onClick={() => {
+            setEditing(null)
+            setShowForm(true)
+          }}
+          className={cn(buttonVariants({ size: 'sm' }), 'min-h-[44px] w-full sm:min-h-[38px] sm:w-auto')}
+        >
           <Plus className="h-4 w-4" /> {t.admin.new}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher une formation..." className="pl-9" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher une formation..."
+            className="pl-9"
+          />
         </div>
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="h-11 rounded-xl border border-input bg-background px-3 text-sm">
+        <select
+          value={status}
+          onChange={(e) => {
+            setStatus(e.target.value)
+            setPage(1)
+          }}
+          className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm sm:w-48"
+        >
           <option value="">Tous statuts</option>
-          {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+          {STATUS.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABELS[s] || s}
+            </option>
+          ))}
         </select>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3.5 lg:grid-cols-2">
         {items.map((f) => (
           <Card key={f.id}>
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground">{f.session} · {new Date(f.date).toLocaleDateString('fr-FR')}</p>
-                  {f.location && <p className="text-xs text-muted-foreground">Lieu : {f.location}</p>}
-                  {f.trainer && <p className="text-xs text-muted-foreground">Formateur : {f.trainer}</p>}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-foreground">{f.title}</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground tabular-nums sm:text-sm">
+                    {[f.session, new Date(f.date).toLocaleDateString('fr-FR')].filter(Boolean).join(' · ')}
+                  </p>
+                  {(f.location || f.trainer) && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {[f.location ? `Lieu : ${f.location}` : null, f.trainer ? `Formateur : ${f.trainer}` : null]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => openBeneficiaries(f)} className="rounded-lg p-2 hover:bg-secondary" title="Bénéficiaires"><Users className="h-4 w-4" /></button>
-                  <button onClick={() => generateCertificates(f)} className="rounded-lg p-2 hover:bg-secondary" title="Attestations"><FileText className="h-4 w-4" /></button>
-                  <button onClick={() => { setEditing(f); setShowForm(true) }} className="rounded-lg p-2 hover:bg-secondary"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => remove(f.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary"><Trash2 className="h-4 w-4" /></button>
-                </div>
+                <span className="shrink-0 text-xs font-semibold text-primary">
+                  {STATUS_LABELS[f.status] || f.status}
+                </span>
               </div>
-              {f.description && <p className="mt-2 text-sm text-muted-foreground">{f.description}</p>}
-              <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                <Badge variant="muted">Participants: {f.participants}</Badge>
-                <Badge variant="muted">Présents: {f.attendees}</Badge>
-                <Badge variant="muted">Note: {f.evaluation}/5</Badge>
-                {f.certificate && <Badge variant="accent">Attestation</Badge>}
-                <Badge variant="outline">{f.status}</Badge>
+
+              {f.description && <p className="mt-2.5 text-sm text-muted-foreground">{f.description}</p>}
+
+              <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground tabular-nums">
+                <span>Participants : <strong className="text-foreground">{f.participants}</strong></span>
+                <span aria-hidden="true">·</span>
+                <span>Présents : <strong className="text-foreground">{f.attendees}</strong></span>
+                <span aria-hidden="true">·</span>
+                <span>Note : <strong className="text-foreground">{f.evaluation}/5</strong></span>
+                {f.certificate && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="font-medium text-primary">Attestation incluse</span>
+                  </>
+                )}
               </div>
+
               {(f.startDate || f.endDate) && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Du {f.startDate ? new Date(f.startDate).toLocaleDateString('fr-FR') : '...'} au {f.endDate ? new Date(f.endDate).toLocaleDateString('fr-FR') : '...'}
+                <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                  Du {f.startDate ? new Date(f.startDate).toLocaleDateString('fr-FR') : '...'} au{' '}
+                  {f.endDate ? new Date(f.endDate).toLocaleDateString('fr-FR') : '...'}
                 </p>
               )}
+
+              <div className="mt-3.5 grid grid-cols-2 gap-2 border-t border-border pt-3 sm:grid-cols-4">
+                <button
+                  type="button"
+                  onClick={() => openBeneficiaries(f)}
+                  className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+                >
+                  <Users className="h-3.5 w-3.5" /> inscrits
+                </button>
+                <button
+                  type="button"
+                  onClick={() => generateCertificates(f)}
+                  className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+                >
+                  <FileText className="h-3.5 w-3.5" /> PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(f)
+                    setShowForm(true)
+                  }}
+                  className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-border bg-secondary/50 px-2 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Modifier
+                </button>
+                <button
+                  type="button"
+                  onClick={() => remove(f.id)}
+                  className="flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-destructive/30 bg-destructive/10 px-2 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/15"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                </button>
+              </div>
             </CardContent>
           </Card>
         ))}
-        {items.length === 0 && <Card><CardContent className="p-10 text-center text-muted-foreground">Aucune formation.</CardContent></Card>}
+        {items.length === 0 && (
+          <Card className="lg:col-span-2">
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">Aucune formation.</CardContent>
+          </Card>
+        )}
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Précédent</button>
-          <span className="text-sm text-muted-foreground">Page {page} / {totalPages}</span>
-          <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>Suivant</button>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <button
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-[42px] px-4')}
+          >
+            Précédent
+          </button>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            Page {page} / {totalPages}
+          </span>
+          <button
+            disabled={page === totalPages}
+            onClick={() => setPage((p) => p + 1)}
+            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'min-h-[42px] px-4')}
+          >
+            Suivant
+          </button>
         </div>
       )}
 
-      {showForm && <FormationForm formation={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load() }} />}
+      {showForm && (
+        <FormationForm
+          formation={editing}
+          onClose={() => setShowForm(false)}
+          onSaved={() => {
+            setShowForm(false)
+            load()
+          }}
+        />
+      )}
 
       {showBeneficiaries && selected && (
-        <FormationBeneficiaries formation={selected} onClose={() => { setShowBeneficiaries(false); setSelected(null) }} onUpdated={() => load()} />
+        <FormationBeneficiaries
+          formation={selected}
+          onClose={() => {
+            setShowBeneficiaries(false)
+            setSelected(null)
+          }}
+          onUpdated={() => load()}
+        />
       )}
     </div>
   )
 }
 
-function FormationForm({ formation, onClose, onSaved }: { formation: Formation | null; onClose: () => void; onSaved: () => void }) {
+function FormationForm({
+  formation,
+  onClose,
+  onSaved,
+}: {
+  formation: Formation | null
+  onClose: () => void
+  onSaved: () => void
+}) {
   const { t } = useI18n()
   const toast = useToast()
   const [form, setForm] = useState({
@@ -253,7 +382,9 @@ function FormationForm({ formation, onClose, onSaved }: { formation: Formation |
     status: formation?.status || 'planned',
   })
   const [saving, setSaving] = useState(false)
-  function set(k: string, v: any) { setForm((f) => ({ ...f, [k]: v })) }
+  function set(k: string, v: any) {
+    setForm((f) => ({ ...f, [k]: v }))
+  }
 
   async function submit() {
     if (!form.title.trim()) {
@@ -280,52 +411,112 @@ function FormationForm({ formation, onClose, onSaved }: { formation: Formation |
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-foreground/45 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl pb-safe sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="font-semibold">{formation ? t.admin.edit : t.admin.new}</h2>
-          <button onClick={onClose} className="text-muted-foreground"><X className="h-5 w-5" /></button>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <div className="max-h-[70vh] space-y-4 overflow-y-auto p-5">
-          <Field label={t.admin.title}><Input value={form.title} onChange={(e) => set('title', e.target.value)} /></Field>
-          <Field label="Description"><Textarea value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
-          <Field label="Session"><Input value={form.session} onChange={(e) => set('session', e.target.value)} /></Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Date début"><Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} /></Field>
-            <Field label="Date fin"><Input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} /></Field>
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <Field label={t.admin.title}>
+            <Input value={form.title} onChange={(e) => set('title', e.target.value)} />
+          </Field>
+          <Field label="Description">
+            <Textarea value={form.description} onChange={(e) => set('description', e.target.value)} />
+          </Field>
+          <Field label="Session">
+            <Input value={form.session} onChange={(e) => set('session', e.target.value)} />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Date début">
+              <Input type="date" value={form.startDate} onChange={(e) => set('startDate', e.target.value)} />
+            </Field>
+            <Field label="Date fin">
+              <Input type="date" value={form.endDate} onChange={(e) => set('endDate', e.target.value)} />
+            </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Lieu"><Input value={form.location} onChange={(e) => set('location', e.target.value)} /></Field>
-            <Field label="Formateur"><Input value={form.trainer} onChange={(e) => set('trainer', e.target.value)} /></Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Lieu">
+              <Input value={form.location} onChange={(e) => set('location', e.target.value)} />
+            </Field>
+            <Field label="Formateur">
+              <Input value={form.trainer} onChange={(e) => set('trainer', e.target.value)} />
+            </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t.admin.date}><Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} /></Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label={t.admin.date}>
+              <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
+            </Field>
             <Field label={t.admin.status}>
-              <select value={form.status} onChange={(e) => set('status', e.target.value)} className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm">
-                {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+              <select
+                value={form.status}
+                onChange={(e) => set('status', e.target.value)}
+                className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              >
+                {STATUS.map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABELS[s] || s}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label={t.admin.participants}><Input type="number" value={form.participants} onChange={(e) => set('participants', Number(e.target.value))} /></Field>
-            <Field label={t.admin.attendees}><Input type="number" value={form.attendees} onChange={(e) => set('attendees', Number(e.target.value))} /></Field>
-            <Field label={t.admin.evaluation}><Input type="number" value={form.evaluation} onChange={(e) => set('evaluation', Number(e.target.value))} /></Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label={t.admin.participants}>
+              <Input type="number" value={form.participants} onChange={(e) => set('participants', Number(e.target.value))} />
+            </Field>
+            <Field label={t.admin.attendees}>
+              <Input type="number" value={form.attendees} onChange={(e) => set('attendees', Number(e.target.value))} />
+            </Field>
+            <Field label={t.admin.evaluation}>
+              <Input type="number" value={form.evaluation} onChange={(e) => set('evaluation', Number(e.target.value))} />
+            </Field>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.certificate} onChange={(e) => set('certificate', e.target.checked)} />
+          <label className="flex min-h-[40px] items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={form.certificate}
+              onChange={(e) => set('certificate', e.target.checked)}
+              className="h-4 w-4"
+            />
             {t.admin.certificate}
           </label>
         </div>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }))}>{t.admin.cancel}</button>
-          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}))}><Check className="h-4 w-4" /> {t.admin.save}</button>
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
+          <button onClick={onClose} className={cn(buttonVariants({ variant: 'outline' }), 'min-h-[46px] w-full sm:w-auto')}>
+            {t.admin.cancel}
+          </button>
+          <button onClick={submit} disabled={saving} className={cn(buttonVariants({}), 'min-h-[46px] w-full sm:w-auto')}>
+            <Check className="h-4 w-4" /> {t.admin.save}
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-function FormationBeneficiaries({ formation, onClose, onUpdated }: { formation: Formation; onClose: () => void; onUpdated: () => void }) {
+function FormationBeneficiaries({
+  formation,
+  onClose,
+  onUpdated,
+}: {
+  formation: Formation
+  onClose: () => void
+  onUpdated: () => void
+}) {
   const { t } = useI18n()
   const toast = useToast()
   const [list, setList] = useState<Formation['beneficiaries']>([])
@@ -338,7 +529,9 @@ function FormationBeneficiaries({ formation, onClose, onUpdated }: { formation: 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase()
     if (!term) return list || []
-    return (list || []).filter((b) => `${b.firstName} ${b.lastName} ${b.cin ?? ''} ${b.phone ?? ''} ${b.address ?? ''}`.toLowerCase().includes(term))
+    return (list || []).filter((b) =>
+      `${b.firstName} ${b.lastName} ${b.cin ?? ''} ${b.phone ?? ''} ${b.address ?? ''}`.toLowerCase().includes(term)
+    )
   }, [list, q])
 
   async function remove(id: string) {
@@ -359,23 +552,76 @@ function FormationBeneficiaries({ formation, onClose, onUpdated }: { formation: 
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div>
-            <h2 className="font-semibold">Bénéficiaires — {formation.title}</h2>
-            <p className="text-xs text-muted-foreground">{(list || []).length} bénéficiaire(s)</p>
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-foreground/45 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl pb-safe sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-border sm:hidden" />
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
+          <div className="min-w-0 pr-3">
+            <h2 className="truncate font-semibold">Bénéficiaires — {formation.title}</h2>
+            <p className="text-xs text-muted-foreground tabular-nums">{(list || []).length} bénéficiaire(s)</p>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground"
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <div className="p-5">
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher nom, prénom, CIN, téléphone, adresse..." className="pl-9" />
-            </div>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          <div className="mb-4 relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Rechercher nom, prénom, CIN, téléphone..."
+              className="pl-9"
+            />
           </div>
-          <div className="overflow-x-auto">
+
+          {/* Mobile Cards inside Modal (< md) */}
+          <div className="space-y-2.5 md:hidden">
+            {(!filtered || filtered.length === 0) && (
+              <p className="py-6 text-center text-sm text-muted-foreground">Aucun bénéficiaire.</p>
+            )}
+            {(filtered || []).map((b) => (
+              <div key={b.id} className="rounded-2xl border border-border bg-secondary/25 p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-foreground">
+                      {b.lastName} {b.firstName}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                      {[b.cin ? `CIN ${b.cin}` : null, b.phone, b.status === 'inactive' ? 'Inactif' : 'Actif']
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                    {(b.address || b.attendance) && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {[b.address, b.attendance ? `Présence : ${b.attendance}` : null].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => remove(b.id)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-destructive hover:bg-destructive/15"
+                    aria-label={t.admin.delete}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table inside Modal (>= md) */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead className="border-b border-border text-left text-muted-foreground">
                 <tr>
@@ -394,17 +640,31 @@ function FormationBeneficiaries({ formation, onClose, onUpdated }: { formation: 
                   <tr key={b.id} className="border-b border-border last:border-0">
                     <td className="p-3 font-medium">{b.lastName}</td>
                     <td className="p-3 font-medium">{b.firstName}</td>
-                    <td className="p-3 text-muted-foreground">{b.cin || '—'}</td>
-                    <td className="p-3 text-muted-foreground">{b.phone || '—'}</td>
+                    <td className="p-3 font-mono text-xs text-muted-foreground tabular-nums">{b.cin || '—'}</td>
+                    <td className="p-3 text-muted-foreground tabular-nums">{b.phone || '—'}</td>
                     <td className="p-3 text-muted-foreground">{b.address || '—'}</td>
-                    <td className="p-3"><Badge variant={b.status === 'inactive' ? 'muted' : 'default'}>{b.status === 'inactive' ? 'Inactif' : 'Actif'}</Badge></td>
+                    <td className="p-3 text-xs font-medium">
+                      {b.status === 'inactive' ? 'Inactif' : 'Actif'}
+                    </td>
                     <td className="p-3 text-muted-foreground">{b.attendance || '—'}</td>
                     <td className="p-3 text-right">
-                      <button onClick={() => remove(b.id)} className="rounded-lg p-2 text-destructive hover:bg-secondary" aria-label={t.admin.delete}><Trash2 className="h-4 w-4" /></button>
+                      <button
+                        onClick={() => remove(b.id)}
+                        className="rounded-lg p-2 text-destructive hover:bg-secondary"
+                        aria-label={t.admin.delete}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
-                {(!filtered || filtered.length === 0) && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Aucun bénéficiaire.</td></tr>}
+                {(!filtered || filtered.length === 0) && (
+                  <tr>
+                    <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                      Aucun bénéficiaire.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -414,6 +674,11 @@ function FormationBeneficiaries({ formation, onClose, onUpdated }: { formation: 
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  )
 }
