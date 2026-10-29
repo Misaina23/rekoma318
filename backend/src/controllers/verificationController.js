@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { prisma } from '../lib/prisma.js'
 import { emailVerificationEmail, twoFactorEmail } from '../utils/mail.js'
 import { createAccessToken, createRefreshTokenValue } from './authController.js'
