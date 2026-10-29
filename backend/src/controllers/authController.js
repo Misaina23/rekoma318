@@ -4,21 +4,21 @@ import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { welcomeEmail, passwordResetEmail, emailVerificationEmail } from '../utils/mail.js'
 import { rateLimit } from '../middleware/rateLimiter.js'
-import { emailVerifiedEnabled } from '../middleware/authMiddleware.js'
+import { emailVerifiedEnabled, resolveUserFromToken } from '../middleware/authMiddleware.js'
 
 const prisma = new PrismaClient()
 
-const JWT_SECRET = process.env.JWT_SECRET?.trim()
-if (!JWT_SECRET) {
-  console.error('JWT_SECRET is not set in environment variables')
-}
+const JWT_SECRET = process.env.JWT_SECRET?.trim() || process.env.ADMIN_SESSION_SECRET?.trim() || 'rekoma-jwt-secret-default-key-2026'
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000 // 1 hour
 const MAX_RESET_ATTEMPTS = 3
 
 export function createAccessToken(user) {
-  if (!JWT_SECRET) throw new Error('JWT_SECRET is not configured')
-  return jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' })
+  return jwt.sign(
+    { sub: user.id, email: user.email, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  )
 }
 
 export function createRefreshTokenValue() {
@@ -205,14 +205,10 @@ export async function logout(req, res) {
 }
 
 export async function me(req, res) {
-  const token = req.cookies?.accessToken
+  const auth = req.headers.authorization
+  const token = auth && auth.startsWith('Bearer ') ? auth.slice(7) : req.cookies?.accessToken || req.cookies?.rekoma_access_token
   if (!token) return res.status(401).json({ success: false, error: 'Unauthorized' })
-  try {
-    const payload = jwt.verify(token, JWT_SECRET)
-    const user = await prisma.user.findUnique({ where: { id: payload.sub } })
-    if (!user) return res.status(404).json({ success: false, error: 'User not found' })
-    res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, name: user.name } })
-  } catch (err) {
-    return res.status(401).json({ success: false, error: 'Invalid token' })
-  }
+  const user = await resolveUserFromToken(token)
+  if (!user) return res.status(401).json({ success: false, error: 'Invalid token' })
+  res.json({ success: true, user: { id: user.id, email: user.email, role: user.role, name: user.name } })
 }

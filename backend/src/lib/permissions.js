@@ -83,6 +83,8 @@ export async function resolvePermissions(user) {
 
 export async function hasPermission(user, capability) {
   if (!user) return false
+  const role = String(user.role || '').toLowerCase()
+  if (role === 'super_admin' || role === 'admin') return true
   const caps = await resolvePermissions(user)
   return caps.includes('*') || caps.includes(capability)
 }
