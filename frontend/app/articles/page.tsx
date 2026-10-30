@@ -45,7 +45,6 @@ type Product = {
 type BasketLine = { productId: string; quantity: number; size: string }
 const MAX_ITEM_QUANTITY = 10
 const MAX_ORDER_LINES = 10
-const ITEMS_PER_PAGE = 5
 
 type SavedOrder = {
   id: string
@@ -69,7 +68,6 @@ export default function ArticlesPage() {
   const [sizes, setSizes] = useState<Record<string, string>>({})
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
   const [recentlyAdded, setRecentlyAdded] = useState<Record<string, boolean>>({})
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false)
 
@@ -243,30 +241,6 @@ export default function ArticlesPage() {
       return matchCategory && matchQuery
     })
   }, [products, selectedCategory, searchQuery])
-
-  // Reset pagination to page 1 when category or search changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [selectedCategory, searchQuery])
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE))
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages)
-    }
-  }, [currentPage, totalPages])
-
-  const paginatedProducts = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE
-    return filteredProducts.slice(start, start + ITEMS_PER_PAGE)
-  }, [filteredProducts, currentPage])
-
-  function goToPage(page: number) {
-    const clamped = Math.max(1, Math.min(totalPages, page))
-    setCurrentPage(clamped)
-    document.getElementById('catalogue-articles')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
 
   // Subtotal and total item count
   const subtotal = useMemo(
@@ -555,9 +529,9 @@ export default function ArticlesPage() {
             </div>
           )}
 
-          {/* Products Grid (5 per page) */}
+          {/* Products Grid (All available articles) */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {paginatedProducts.map((product) => {
+            {filteredProducts.map((product) => {
               const currentSize = sizes[product.id] || (product.sizes.length > 0 ? product.sizes[0] : '')
               const qtyInCart = getProductSizeQuantity(product.id, currentSize)
               const itemKey = `${product.id}-${currentSize}`
@@ -716,68 +690,6 @@ export default function ArticlesPage() {
               )
             })}
           </div>
-
-          {/* Pagination Controls (5 articles per page) */}
-          {!loading && !loadError && filteredProducts.length > 0 && (
-            <nav
-              aria-label="Pagination du catalogue"
-              className="mt-10 flex flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-card px-5 py-4 shadow-sm sm:flex-row"
-            >
-              <p className="text-xs text-muted-foreground tabular-nums">
-                Affichage{' '}
-                <strong className="text-foreground">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}
-                </strong>
-                –
-                <strong className="text-foreground">
-                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)}
-                </strong>{' '}
-                sur <strong className="text-foreground">{filteredProducts.length}</strong> article
-                {filteredProducts.length > 1 ? 's' : ''}
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage <= 1}
-                  onClick={() => goToPage(currentPage - 1)}
-                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 sm:px-3.5"
-                >
-                  <ChevronLeft className="h-4 w-4 shrink-0" />
-                  <span className="hidden min-[380px]:inline">Précédent</span>
-                </button>
-
-                <div className="flex flex-wrap items-center justify-center gap-1">
-                  {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      type="button"
-                      onClick={() => goToPage(pageNum)}
-                      aria-current={currentPage === pageNum ? 'page' : undefined}
-                      className={cn(
-                        'flex h-[42px] w-[42px] items-center justify-center rounded-xl text-xs font-bold tabular-nums transition-all',
-                        currentPage === pageNum
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'border border-border bg-background hover:bg-muted'
-                      )}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => goToPage(currentPage + 1)}
-                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 sm:px-3.5"
-                >
-                  <span className="hidden min-[380px]:inline">Suivant</span>
-                  <ChevronRight className="h-4 w-4 shrink-0" />
-                </button>
-              </div>
-            </nav>
-          )}
         </div>
       </section>
 
