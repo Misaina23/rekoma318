@@ -18,7 +18,12 @@ import {
   ShieldCheck,
   Store,
   MessageCircle,
-  AlertCircle
+  AlertCircle,
+  Smartphone,
+  PhoneCall,
+  Copy,
+  ShieldAlert,
+  X
 } from 'lucide-react'
 import { useI18n } from '@/components/providers/I18nProvider'
 import { useToast } from '@/components/ui/toast'
@@ -78,6 +83,65 @@ export default function ArticlesPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [savedOrder, setSavedOrder] = useState<SavedOrder | null>(null)
+  const [ussdModalOpen, setUssdModalOpen] = useState(false)
+  const [ussdAmount, setUssdAmount] = useState<number>(0)
+  const [copiedUssd, setCopiedUssd] = useState(false)
+
+  function openUssdPayment(amount: number) {
+    const cleanInt = Math.max(1, Math.round(Number(amount) || 0))
+    if (!cleanInt || cleanInt <= 0) {
+      toast('Votre panier est vide', 'error')
+      return
+    }
+    setUssdAmount(cleanInt)
+    setUssdModalOpen(true)
+    setCopiedUssd(false)
+
+    // Code USSD testé et fonctionnel :
+    // #111*1*2*10*2*0345332429*{MONTANT}*1#
+    // Encodage URL : # = %23, * = %2A
+    const encodedUssd = `tel:%23111%2A1%2A2%2A10%2A2%2A0345332429%2A${cleanInt}%2A1%23`
+    try {
+      if (typeof window !== 'undefined') {
+        window.location.href = encodedUssd
+      }
+    } catch {
+      // Le modal affichera le code et le bouton de copie en fallback
+    }
+  }
+
+  function copyUssdCode(code: string) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(() => {
+        setCopiedUssd(true)
+        toast('Code USSD copié dans le presse-papier ✓', 'success')
+        setTimeout(() => setCopiedUssd(false), 3000)
+      }).catch(() => {
+        fallbackCopyText(code)
+      })
+    } else {
+      fallbackCopyText(code)
+    }
+  }
+
+  function fallbackCopyText(text: string) {
+    try {
+      const el = document.createElement('textarea')
+      el.value = text
+      el.setAttribute('readonly', '')
+      el.style.position = 'fixed'
+      el.style.left = '-9999px'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+      setCopiedUssd(true)
+      toast('Code USSD copié ✓', 'success')
+      setTimeout(() => setCopiedUssd(false), 3000)
+    } catch {
+      toast('Sélectionnez et copiez le code manuellement', 'error')
+    }
+  }
 
   // Load basket from local storage on mount
   useEffect(() => {
@@ -756,20 +820,31 @@ export default function ArticlesPage() {
                 </div>
               </div>
 
-              <a
-                href="#commande"
-                onClick={(e) => {
-                  e.preventDefault()
-                  document.getElementById('commande')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-                className={cn(
-                  buttonVariants({ size: 'default' }),
-                  'min-h-[42px] shrink-0 whitespace-nowrap rounded-xl px-3.5 text-xs font-bold shadow-md gap-1.5 sm:min-h-[44px] sm:px-5 sm:text-sm'
-                )}
-              >
-                <span>Valider le panier</span>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openUssdPayment(subtotal)}
+                  className="hidden min-[420px]:inline-flex min-h-[42px] shrink-0 items-center gap-1.5 rounded-xl bg-[#ffcc00] hover:bg-[#e6b800] px-3 text-xs font-bold text-stone-950 border border-[#d4a900] shadow-sm transition-transform active:scale-95"
+                  title="Payer directement avec MVola"
+                >
+                  <Smartphone className="h-3.5 w-3.5 text-stone-950" />
+                  <span>Payer MVola</span>
+                </button>
+                <a
+                  href="#commande"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    document.getElementById('commande')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                  }}
+                  className={cn(
+                    buttonVariants({ size: 'default' }),
+                    'min-h-[42px] shrink-0 whitespace-nowrap rounded-xl px-3.5 text-xs font-bold shadow-md gap-1.5 sm:min-h-[44px] sm:px-5 sm:text-sm'
+                  )}
+                >
+                  <span>Valider le panier</span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                </a>
+              </div>
             </div>
           </div>
         </aside>
@@ -948,19 +1023,33 @@ export default function ArticlesPage() {
                     </p>
                   </div>
 
-                  <Link
-                    href={savedOrder.whatsappUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={cn(
-                      buttonVariants({ size: 'lg' }),
-                      'w-full h-12 rounded-xl font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg flex items-center justify-center gap-2'
-                    )}
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    <span>Confirmer sur WhatsApp</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
+                  <div className="grid gap-2.5 sm:grid-cols-2">
+                    <Link
+                      href={savedOrder.whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(
+                        buttonVariants({ size: 'lg' }),
+                        'w-full h-12 rounded-xl font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg flex items-center justify-center gap-2 text-xs sm:text-sm'
+                      )}
+                    >
+                      <MessageCircle className="h-5 w-5 shrink-0" />
+                      <span>Confirmer sur WhatsApp</span>
+                      <ArrowRight className="h-4 w-4 shrink-0" />
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => openUssdPayment(savedOrder.total)}
+                      className={cn(
+                        buttonVariants({ size: 'lg' }),
+                        'w-full h-12 rounded-xl font-bold bg-[#ffcc00] hover:bg-[#e6b800] text-stone-950 border border-[#d4a900] shadow-lg flex items-center justify-center gap-2 text-xs sm:text-sm transition-transform active:scale-[0.98]'
+                      )}
+                    >
+                      <Smartphone className="h-5 w-5 shrink-0 text-stone-950" />
+                      <span>Payer {savedOrder.total.toLocaleString('fr-FR')} Ar (MVola)</span>
+                    </button>
+                  </div>
 
                   <button
                     type="button"
@@ -1083,26 +1172,41 @@ export default function ArticlesPage() {
                     />
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={submitting || basket.length === 0}
-                    className={cn(
-                      buttonVariants({ size: 'lg' }),
-                      'mt-2 h-auto min-h-[48px] w-full gap-2 rounded-xl px-4 py-3 text-center text-xs font-bold leading-snug shadow-md sm:text-sm'
-                    )}
-                  >
-                    {submitting ? (
-                      'Enregistrement de la commande…'
-                    ) : (
-                      <>
-                        <MessageCircle className="h-5 w-5 shrink-0" />
-                        <span>Enregistrer et continuer sur WhatsApp</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="mt-2 grid gap-2.5 sm:grid-cols-2">
+                    <button
+                      type="submit"
+                      disabled={submitting || basket.length === 0}
+                      className={cn(
+                        buttonVariants({ size: 'lg' }),
+                        'h-auto min-h-[48px] w-full gap-2 rounded-xl px-4 py-3 text-center text-xs font-bold leading-snug shadow-md sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90'
+                      )}
+                    >
+                      {submitting ? (
+                        'Enregistrement de la commande…'
+                      ) : (
+                        <>
+                          <MessageCircle className="h-5 w-5 shrink-0" />
+                          <span>Enregistrer et continuer sur WhatsApp</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={basket.length === 0}
+                      onClick={() => openUssdPayment(subtotal)}
+                      className={cn(
+                        buttonVariants({ size: 'lg' }),
+                        'h-auto min-h-[48px] w-full gap-2 rounded-xl px-4 py-3 text-center text-xs font-bold leading-snug shadow-md sm:text-sm bg-[#ffcc00] hover:bg-[#e6b800] text-stone-950 border border-[#d4a900] transition-transform active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none'
+                      )}
+                    >
+                      <Smartphone className="h-5 w-5 shrink-0 text-stone-950" />
+                      <span>Payer avec MVola ({subtotal.toLocaleString('fr-FR')} Ar)</span>
+                    </button>
+                  </div>
 
                   <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-                    Les frais de transport et modalités de paiement (Mvola ou espèces) sont validés directement avec notre responsable de permanence.
+                    Les frais de transport et confirmation de paiement (MVola direct ou espèces) sont validés directement avec notre responsable de permanence REKOMA.
                   </p>
                 </form>
               )}
@@ -1110,6 +1214,149 @@ export default function ArticlesPage() {
           </div>
         </div>
       </section>
+
+      {/* Modal USSD MVola / Yas */}
+      {ussdModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ussd-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setUssdModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#ffcc00]/50 bg-card p-5 shadow-2xl transition-all sm:p-7 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ffcc00] text-stone-950 font-extrabold shadow-sm">
+                  <Smartphone className="h-6 w-6 text-stone-950" />
+                </div>
+                <div>
+                  <h3 id="ussd-modal-title" className="text-lg font-bold text-foreground">
+                    Paiement direct MVola / Yas
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Transfert sécurisé par code USSD instantané
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUssdModalOpen(false)}
+                className="rounded-xl p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Fermer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {/* Transaction Summary Card */}
+              <div className="rounded-2xl border border-border bg-stone-50 dark:bg-stone-900/50 p-4">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Numéro marchand bénéficiaire (REKOMA)</span>
+                  <span className="font-semibold text-foreground">034 53 32 429</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-border/70 pt-2 text-sm font-bold">
+                  <span className="text-muted-foreground">Total à transférer :</span>
+                  <span className="text-xl font-extrabold tabular-nums text-primary">
+                    {ussdAmount.toLocaleString('fr-FR')} Ar
+                  </span>
+                </div>
+              </div>
+
+              {/* Primary Action Button: tel: link */}
+              <a
+                href={`tel:%23111%2A1%2A2%2A10%2A2%2A0345332429%2A${ussdAmount}%2A1%23`}
+                className="flex min-h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ffcc00] hover:bg-[#e6b800] px-5 py-3 text-center text-sm font-bold text-stone-950 shadow-md transition-all active:scale-[0.98]"
+              >
+                <PhoneCall className="h-5 w-5 text-stone-950" />
+                <span>Composer le code sur mon téléphone</span>
+              </a>
+
+              {/* Clear Instructions */}
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs leading-relaxed text-foreground">
+                <p className="font-bold text-primary flex items-center gap-1.5 mb-1.5">
+                  <Check className="h-4 w-4" />
+                  Instructions de confirmation :
+                </p>
+                <p className="font-semibold text-foreground">
+                  « Composez le code, saisissez votre code PIN MVola pour confirmer. Conservez la capture d&apos;écran de confirmation. »
+                </p>
+                <ol className="mt-2 space-y-1.5 list-decimal list-inside text-[11px] text-muted-foreground">
+                  <li>Validez la composition du code ou ouvrez votre application Téléphone.</li>
+                  <li>Le menu opérateur MVola s&apos;affiche : vérifiez le numéro marchand (<strong>034 53 32 429</strong>) et le montant (<strong>{ussdAmount.toLocaleString('fr-FR')} Ar</strong>).</li>
+                  <li>Saisissez votre code PIN secret sur votre combiné pour valider.</li>
+                  <li>Prenez une capture d&apos;écran du SMS de confirmation reçu.</li>
+                </ol>
+              </div>
+
+              {/* Fallback Section: Text Code + Copy Button */}
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-foreground">
+                    Code USSD prêt à composer :
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">(Fallback manuel)</span>
+                </div>
+                <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-stone-100 dark:bg-stone-900 p-2.5 font-mono text-xs font-bold text-foreground">
+                  <span className="truncate select-all tracking-wide">
+                    {`#111*1*2*10*2*0345332429*${ussdAmount}*1#`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => copyUssdCode(`#111*1*2*10*2*0345332429*${ussdAmount}*1#`)}
+                    className={cn(
+                      'inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-xs transition-colors',
+                      copiedUssd
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-stone-800 text-white hover:bg-stone-900 dark:bg-stone-200 dark:text-stone-950'
+                    )}
+                  >
+                    {copiedUssd ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Copié !</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Copier</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Security Alert: Never share PIN */}
+              <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200">
+                <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong>Règle de sécurité :</strong> Ne partagez jamais votre code secret PIN MVola. REKOMA ne vous demandera jamais votre code secret : la confirmation est strictement personnelle et s&apos;effectue sur l&apos;écran sécurisé de votre propre opérateur téléphonique.
+                </p>
+              </div>
+
+              {/* Transmit confirmation on WhatsApp button */}
+              <div className="pt-1">
+                <a
+                  href={`https://wa.me/261345332429?text=${encodeURIComponent(
+                    `Bonjour REKOMA, j'ai effectué le paiement MVola de ${ussdAmount.toLocaleString('fr-FR')} Ar via le code USSD (#111*1*2*10*2*0345332429*${ussdAmount}*1#). Voici ma capture d'écran de confirmation.`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#25D366]/40 bg-[#25D366]/10 px-4 py-2.5 text-xs font-bold text-[#1f8b47] dark:text-[#25D366] hover:bg-[#25D366]/20 transition-colors"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Envoyer la preuve de paiement sur WhatsApp</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
