@@ -28,13 +28,16 @@ export async function GET(req: NextRequest) {
     console.warn('remoteStore.orders failed, falling back to local orders:', error.message)
   }
 
-  // Merge remote and local orders without duplicates by ID
+  const deletedOrders = await readJson<string[]>('deleted_orders.json', [])
+  const deletedSet = new Set(deletedOrders)
+
+  // Merge remote and local orders without duplicates by ID, filtering deleted
   const orderMap = new Map<string, any>()
   for (const o of remoteOrders) {
-    if (o?.id) orderMap.set(o.id, o)
+    if (o?.id && !deletedSet.has(o.id)) orderMap.set(o.id, o)
   }
   for (const o of localOrders) {
-    if (o?.id && !orderMap.has(o.id)) {
+    if (o?.id && !deletedSet.has(o.id) && !orderMap.has(o.id)) {
       orderMap.set(o.id, o)
     }
   }

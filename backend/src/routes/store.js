@@ -3,6 +3,7 @@ import {
   createOrder,
   createProduct,
   deleteProduct,
+  deleteOrder,
   listOrders,
   listProducts,
   listProductsForAdmin,
@@ -27,5 +28,6 @@ router.post('/orders', (req, res, next) => {
 }, createOrder)
 router.get('/orders', requirePermission('manage_orders'), listOrders)
 router.patch('/orders/:id', requirePermission('manage_orders'), updateOrder)
+router.delete('/orders/:id', requirePermission('manage_orders'), deleteOrder)
 
 export default router

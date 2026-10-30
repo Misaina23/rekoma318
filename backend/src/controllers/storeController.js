@@ -370,3 +370,15 @@ export async function updateOrder(req, res) {
   const order = await prisma.storeOrder.update({ where: { id: req.params.id }, data: { status } })
   res.json({ success: true, order })
 }
+
+export async function deleteOrder(req, res) {
+  try {
+    const existing = await prisma.storeOrder.findUnique({ where: { id: req.params.id } })
+    if (!existing) return res.status(404).json({ success: false, error: 'Commande introuvable.' })
+    await prisma.storeOrder.delete({ where: { id: req.params.id } })
+    res.json({ success: true, id: req.params.id })
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message || 'Erreur lors de la suppression.' })
+  }
+}
+

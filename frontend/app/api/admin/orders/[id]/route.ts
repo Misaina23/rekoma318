@@ -38,3 +38,36 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     )
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const { res, authHeader } = requireAuth(req, 'manage_orders')
+  if (res) return res
+
+  const orderId = params.id
+
+  // Remove from local store and keep deleted list
+  try {
+    const local = await readJson<any[]>('orders.json', [])
+    const updated = local.filter((o) => o.id !== orderId)
+    await writeJson('orders.json', updated)
+
+    const deletedList = await readJson<string[]>('deleted_orders.json', [])
+    if (!deletedList.includes(orderId)) {
+      deletedList.push(orderId)
+      await writeJson('deleted_orders.json', deletedList)
+    }
+  } catch (err: any) {
+    console.warn('Failed to delete from local store:', err.message)
+  }
+
+  // Remove from remote store if not a local-only mock ID
+  if (!orderId.startsWith('CMD-')) {
+    try {
+      await remoteStore.deleteOrder(orderId, authHeader)
+    } catch (err: any) {
+      console.warn('remoteStore.deleteOrder error or fallback:', err?.message)
+    }
+  }
+
+  return NextResponse.json({ success: true, id: orderId })
+}

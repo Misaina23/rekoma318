@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { useI18n } from '@/components/providers/I18nProvider'
-import { useToast } from '@/components/ui/toast'
+import { useToast, confirmDialog } from '@/components/ui/toast'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { RefreshCw } from 'lucide-react'
+import { Check, RefreshCw, Trash2 } from 'lucide-react'
 
 type OrderItem = { name: string; quantity: number; unitPrice: number; size: string | null }
 type Order = {
@@ -96,11 +96,42 @@ export default function AdminOrdersPage() {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Impossible de modifier la commande.')
-      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status } : item))
+      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status } : item)))
       toast('Statut de commande mis à jour.', 'success')
     } catch (updateError) {
       toast(updateError instanceof Error ? updateError.message : 'Erreur de mise à jour.', 'error')
     }
+  }
+
+  async function removeOrder(order: Order) {
+    const ok = await confirmDialog(
+      `Voulez-vous vraiment supprimer définitivement la commande de ${order.customerName} (#${order.id}) ? Cette action est irréversible.`,
+      'Supprimer la commande'
+    )
+    if (!ok) return
+
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}`, {
+        method: 'DELETE',
+        headers: buildAuthHeaders(),
+        credentials: 'include',
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.message || 'Impossible de supprimer la commande.')
+
+      setOrders((current) => current.filter((item) => item.id !== order.id))
+      toast(`Commande #${order.id} supprimée avec succès.`, 'success')
+    } catch (err: any) {
+      toast(err?.message || 'Erreur lors de la suppression de la commande.', 'error')
+    }
+  }
+
+  async function handleStatusSelect(order: Order, value: string) {
+    if (value === '__delete__') {
+      await removeOrder(order)
+      return
+    }
+    await changeStatus(order, value)
   }
 
   return (
@@ -140,12 +171,14 @@ export default function AdminOrdersPage() {
       {loading ? <p className="py-10 text-center text-sm text-muted-foreground">Chargement des commandes…</p> : (
         <div className="space-y-4">
           {visibleOrders.map((order) => (
-            <Card key={order.id}>
+            <Card key={order.id} className={order.status === 'pending' ? 'border-amber-500/40 shadow-sm' : ''}>
               <CardContent className="grid gap-5 p-5 lg:grid-cols-[1fr_1.2fr_auto]">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-semibold">{order.customerName}</h2>
-                    <Badge variant={order.status === 'cancelled' ? 'muted' : 'default'}>{STATUS_LABELS[order.status] || order.status}</Badge>
+                    <Badge variant={order.status === 'cancelled' ? 'muted' : order.status === 'pending' ? 'default' : 'default'} className={order.status === 'pending' ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}>
+                      {STATUS_LABELS[order.status] || order.status}
+                    </Badge>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">{order.phone}</p>
                   <p className="text-sm text-muted-foreground">{order.city} · {order.deliveryType === 'pickup' ? 'Retrait à Midongy' : `Livraison${order.address ? ` · ${order.address}` : ''}`}</p>
@@ -171,15 +204,58 @@ export default function AdminOrdersPage() {
                   ))}
                   <p className="border-t border-border pt-2 font-semibold">{order.total.toLocaleString('fr-FR')} Ar <span className="font-normal text-muted-foreground">· livraison à confirmer</span></p>
                 </div>
-                <div className="flex items-center lg:justify-end">
-                  <select
-                    aria-label={`Statut de la commande ${order.id}`}
-                    value={order.status}
-                    onChange={(event) => changeStatus(order, event.target.value)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm lg:w-44"
-                  >
-                    {STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
-                  </select>
+                <div className="flex flex-col items-stretch justify-center gap-2.5 lg:items-end">
+                  {order.status === 'pending' && (
+                    <div className="w-full rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+                      <span className="font-semibold">Action « À confirmer » :</span>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => changeStatus(order, 'confirmed')}
+                          className="flex h-8 items-center gap-1 rounded bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-all"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Confirmer</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeOrder(order)}
+                          className="flex h-8 items-center gap-1 rounded border border-destructive/40 bg-destructive/15 px-2.5 text-xs font-medium text-destructive hover:bg-destructive/25 transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Supprimer</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      aria-label={`Statut de la commande ${order.id}`}
+                      value={order.status}
+                      onChange={(event) => handleStatusSelect(order, event.target.value)}
+                      className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm lg:w-44 lg:flex-none"
+                    >
+                      {STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {STATUS_LABELS[status]}
+                        </option>
+                      ))}
+                      <option value="__delete__" className="font-semibold text-destructive">
+                        🗑️ Supprimer la commande
+                      </option>
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => removeOrder(order)}
+                      title="Supprimer cette commande"
+                      className="flex h-10 items-center justify-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 text-xs font-semibold text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Supprimer</span>
+                    </button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

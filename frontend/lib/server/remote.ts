@@ -363,6 +363,7 @@ export const remoteStore = {
   orders: (authHeader?: string | null) => call('/api/store/orders', {}, authHeader).then((d) => d as { orders: any[] }),
   createOrder: (body: any) => call('/api/store/orders', { method: 'POST', body: JSON.stringify(body) }).then((d) => d as any),
   updateOrder: (id: string, status: string, authHeader?: string | null) => call(`/api/store/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }, authHeader).then((d) => d as any),
+  deleteOrder: (id: string, authHeader?: string | null) => call(`/api/store/orders/${id}`, { method: 'DELETE' }, authHeader).then((d) => d as any),
 }
 
 export { API }
