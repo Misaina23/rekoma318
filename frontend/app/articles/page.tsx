@@ -66,6 +66,7 @@ export default function ArticlesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [recentlyAdded, setRecentlyAdded] = useState<Record<string, boolean>>({})
+  const [isCheckoutVisible, setIsCheckoutVisible] = useState(false)
 
   const [form, setForm] = useState({
     customerName: '',
@@ -99,6 +100,18 @@ export default function ArticlesPage() {
       // ignore
     }
   }, [basket])
+
+  // Hide floating cart bar automatically when user scrolls into #commande checkout section
+  useEffect(() => {
+    const target = document.getElementById('commande')
+    if (!target || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsCheckoutVisible(entry.isIntersecting),
+      { threshold: 0.02, rootMargin: '0px 0px -80px 0px' }
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
 
   // Fetch products catalogue (always fresh so admin price/visibility updates appear immediately)
   useEffect(() => {
@@ -355,15 +368,15 @@ export default function ArticlesPage() {
             </div>
 
             {/* Quick Header Cart Status */}
-            <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:min-w-[240px]">
+            <div className="w-full rounded-2xl border border-border bg-card p-4 shadow-sm sm:w-auto sm:min-w-[250px]">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
                     <ShoppingBag className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-medium text-muted-foreground">Votre panier</p>
-                    <p className="text-sm font-bold tabular-nums text-foreground">
+                    <p className="truncate text-sm font-bold tabular-nums text-foreground">
                       {totalItemCount} {totalItemCount > 1 ? 'articles' : 'article'}
                     </p>
                   </div>
@@ -371,9 +384,9 @@ export default function ArticlesPage() {
                 {totalItemCount > 0 && (
                   <a
                     href="#commande"
-                    className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
+                    className="inline-flex min-h-[36px] shrink-0 items-center rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
                   >
-                    Voir
+                    Valider
                   </a>
                 )}
               </div>
@@ -659,18 +672,18 @@ export default function ArticlesPage() {
                 {filteredProducts.length > 1 ? 's' : ''}
               </p>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
                 <button
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => goToPage(currentPage - 1)}
-                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3.5 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 sm:px-3.5"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span>Précédent</span>
+                  <ChevronLeft className="h-4 w-4 shrink-0" />
+                  <span className="hidden min-[380px]:inline">Précédent</span>
                 </button>
 
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center justify-center gap-1">
                   {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((pageNum) => (
                     <button
                       key={pageNum}
@@ -693,10 +706,10 @@ export default function ArticlesPage() {
                   type="button"
                   disabled={currentPage >= totalPages}
                   onClick={() => goToPage(currentPage + 1)}
-                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3.5 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex min-h-[42px] items-center gap-1 rounded-xl border border-border bg-background px-3 text-xs font-semibold transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 sm:px-3.5"
                 >
-                  <span>Suivant</span>
-                  <ChevronRight className="h-4 w-4" />
+                  <span className="hidden min-[380px]:inline">Suivant</span>
+                  <ChevronRight className="h-4 w-4 shrink-0" />
                 </button>
               </div>
             </nav>
@@ -704,40 +717,66 @@ export default function ArticlesPage() {
         </div>
       </section>
 
-      {/* Floating Bottom Cart Bar (appears when items are in cart) */}
+      {/* Floating Bottom Cart Bar (responsive across mobile & desktop, hides when checkout section is in view) */}
       {basket.length > 0 && (
-        <aside aria-label="Aperçu du panier" className="fixed bottom-20 md:bottom-6 left-1/2 z-40 -translate-x-1/2 w-[92%] max-w-lg rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <ShoppingBag className="h-5 w-5" />
+        <aside
+          aria-label="Aperçu du panier"
+          className={cn(
+            'pointer-events-none fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.625rem)] z-40 px-3 transition-all duration-300 sm:px-4 md:bottom-6',
+            isCheckoutVisible ? 'translate-y-6 opacity-0' : 'translate-y-0 opacity-100'
+          )}
+        >
+          <div
+            className={cn(
+              'mx-auto w-full max-w-lg rounded-2xl border border-primary/30 bg-card/95 p-2.5 shadow-2xl backdrop-blur-xl sm:p-3.5',
+              isCheckoutVisible ? 'pointer-events-none' : 'pointer-events-auto'
+            )}
+          >
+            <div className="flex items-center justify-between gap-2.5 sm:gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+                <div className="relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm min-[360px]:flex sm:h-11 sm:w-11">
+                  <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-extrabold text-accent-foreground tabular-nums shadow-xs">
+                    {totalItemCount}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[11px] font-medium text-muted-foreground sm:text-xs">
+                    <span className="sm:hidden">
+                      {totalItemCount} article{totalItemCount > 1 ? 's' : ''}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {totalItemCount} article{totalItemCount > 1 ? 's' : ''} sélectionné
+                      {totalItemCount > 1 ? 's' : ''}
+                    </span>
+                  </p>
+                  <p className="truncate text-sm font-extrabold leading-tight tabular-nums text-primary sm:text-base">
+                    {subtotal.toLocaleString('fr-FR')} Ar
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-foreground">
-                  {totalItemCount} article{totalItemCount > 1 ? 's' : ''} sélectionné{totalItemCount > 1 ? 's' : ''}
-                </p>
-                <p className="text-base font-extrabold tabular-nums text-primary">
-                  {subtotal.toLocaleString('fr-FR')} Ar
-                </p>
-              </div>
-            </div>
 
-            <a
-              href="#commande"
-              className={cn(
-                buttonVariants({ size: 'default' }),
-                'h-11 rounded-xl px-5 font-semibold shadow-md gap-1.5'
-              )}
-            >
-              <span>Valider le panier</span>
-              <ArrowRight className="h-4 w-4" />
-            </a>
+              <a
+                href="#commande"
+                onClick={(e) => {
+                  e.preventDefault()
+                  document.getElementById('commande')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                className={cn(
+                  buttonVariants({ size: 'default' }),
+                  'min-h-[42px] shrink-0 whitespace-nowrap rounded-xl px-3.5 text-xs font-bold shadow-md gap-1.5 sm:min-h-[44px] sm:px-5 sm:text-sm'
+                )}
+              >
+                <span>Valider le panier</span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+              </a>
+            </div>
           </div>
         </aside>
       )}
 
       {/* Order & Checkout Section */}
-      <section id="commande" className="border-t border-border bg-stone-100/70 dark:bg-stone-900/40 py-16 md:py-24">
+      <section id="commande" className="scroll-mt-16 border-t border-border bg-stone-100/70 dark:bg-stone-900/40 py-14 pb-28 md:py-24 md:pb-24">
         <div className="container">
           <div className="mb-10">
             <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
@@ -786,70 +825,81 @@ export default function ArticlesPage() {
                   const lineTotal = product.price * line.quantity
 
                   return (
-                    <div key={`${line.productId}-${line.size}-${idx}`} className="flex items-center gap-4 py-4">
-                      {/* Thumbnail */}
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800">
-                        {isValidImageSrc(product.imageUrl) ? (
-                          <Image
-                            src={product.imageUrl}
-                            alt={product.name}
-                            fill
-                            sizes="64px"
-                            className="object-contain p-1"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                            <ShoppingBag className="h-6 w-6 opacity-40" />
+                    <div
+                      key={`${line.productId}-${line.size}-${idx}`}
+                      className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-4"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                        {/* Thumbnail */}
+                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800 sm:h-16 sm:w-16">
+                          {isValidImageSrc(product.imageUrl) ? (
+                            <Image
+                              src={product.imageUrl}
+                              alt={product.name}
+                              fill
+                              sizes="64px"
+                              className="object-contain p-1"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                              <ShoppingBag className="h-6 w-6 opacity-40" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Information */}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{product.name}</p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                            {line.size && <span className="font-medium text-foreground">Taille : {line.size}</span>}
+                            {line.size && <span aria-hidden="true">·</span>}
+                            <span className="tabular-nums">{product.price.toLocaleString('fr-FR')} Ar / u</span>
                           </div>
-                        )}
+                          <p className="mt-1 hidden text-xs font-bold tabular-nums text-primary sm:block">
+                            Total : {lineTotal.toLocaleString('fr-FR')} Ar
+                          </p>
+                        </div>
                       </div>
 
-                      {/* Information */}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-foreground truncate">{product.name}</p>
-                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                          {line.size && <span className="font-medium text-foreground">Taille : {line.size}</span>}
-                          <span>·</span>
-                          <span className="tabular-nums">{product.price.toLocaleString('fr-FR')} Ar / u</span>
-                        </div>
-                        <p className="mt-1 text-xs font-bold tabular-nums text-primary">
-                          Total : {lineTotal.toLocaleString('fr-FR')} Ar
+                      {/* Mobile row bottom / Desktop right: Line Total + Quantity Stepper + Remove */}
+                      <div className="flex items-center justify-between gap-2 pl-[4.375rem] sm:justify-end sm:pl-0">
+                        <p className="text-xs font-bold tabular-nums text-primary sm:hidden">
+                          {lineTotal.toLocaleString('fr-FR')} Ar
                         </p>
-                      </div>
 
-                      {/* Quantity Stepper & Remove */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center rounded-lg border border-border bg-background p-1">
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex items-center rounded-xl border border-border bg-background p-1">
+                            <button
+                              type="button"
+                              onClick={() => changeQuantity(line.productId, line.size, -1)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted hover:text-primary"
+                              aria-label="Diminuer"
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </button>
+                            <span className="w-7 text-center text-xs font-bold tabular-nums">
+                              {line.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => changeQuantity(line.productId, line.size, 1)}
+                              disabled={line.quantity >= MAX_ITEM_QUANTITY}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-muted hover:text-primary disabled:opacity-40"
+                              aria-label="Augmenter"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+
                           <button
                             type="button"
-                            onClick={() => changeQuantity(line.productId, line.size, -1)}
-                            className="p-1 hover:text-primary transition-colors"
-                            aria-label="Diminuer"
+                            onClick={() => removeLine(line.productId, line.size)}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Supprimer cet article"
                           >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="w-7 text-center text-xs font-bold tabular-nums">
-                            {line.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => changeQuantity(line.productId, line.size, 1)}
-                            disabled={line.quantity >= MAX_ITEM_QUANTITY}
-                            className="p-1 hover:text-primary disabled:opacity-40 transition-colors"
-                            aria-label="Augmenter"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => removeLine(line.productId, line.size)}
-                          className="p-2 text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="Supprimer cet article"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
                     </div>
                   )
@@ -1038,14 +1088,14 @@ export default function ArticlesPage() {
                     disabled={submitting || basket.length === 0}
                     className={cn(
                       buttonVariants({ size: 'lg' }),
-                      'w-full h-12 rounded-xl font-bold mt-2 shadow-md gap-2'
+                      'mt-2 h-auto min-h-[48px] w-full gap-2 rounded-xl px-4 py-3 text-center text-xs font-bold leading-snug shadow-md sm:text-sm'
                     )}
                   >
                     {submitting ? (
                       'Enregistrement de la commande…'
                     ) : (
                       <>
-                        <MessageCircle className="h-5 w-5" />
+                        <MessageCircle className="h-5 w-5 shrink-0" />
                         <span>Enregistrer et continuer sur WhatsApp</span>
                       </>
                     )}
