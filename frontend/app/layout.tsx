@@ -33,6 +33,7 @@ export const metadata: Metadata = {
     shortcut: '/logo.png',
     apple: '/logo.png',
   },
+  manifest: '/manifest.webmanifest',
   description: fr.meta.description,
   keywords: ['REKOMA', 'Midongy Atsimo', 'Madagascar', 'développement local', 'entrepreneuriat', 'PDIMA', 'boutique', 'tee-shirt', 'polo'],
   openGraph: {
