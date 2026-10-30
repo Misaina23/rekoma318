@@ -103,78 +103,46 @@ export async function saveBeneficiaryExtension(id: string, ext: BeneficiaryExten
   await writeJson('beneficiary_extensions.json', all)
 }
 
-const DEFAULT_STAFF_SEED: StaffRecord[] = [
-  {
-    id: 'staff-pdima-001',
-    matricule: 'REK-RH-001',
-    firstName: 'Mamy',
-    lastName: 'Randrianasolo',
-    cin: '101231000003',
-    sex: 'M',
-    birthDate: '1989-04-12',
-    phone: '+261 34 12 300 11',
-    email: 'mamy.randria@rekoma.org',
-    address: 'Antsirabe I, Vakinankaratra',
-    position: 'Technicien Agricole Principal',
-    department: 'Vulgarisation Agricole',
-    hireDate: '2025-01-15',
-    status: 'active',
-    evaluationScore: 4.7,
-    professionalNotes: 'Coordination des champs-écoles paysans SRI et suivi des semences.',
-    memberId: null,
-    contracts: [
-      {
-        id: 'ctr-pdima-001',
-        staffId: 'staff-pdima-001',
-        contractType: 'CDI',
-        startDate: '2025-01-15',
-        endDate: null,
-        salary: 1250000,
-        assignmentLocation: 'Antenne Vakinankaratra',
-        status: 'active',
-        notes: 'Contrat cadre permanent terrain.',
-      },
-    ],
-    createdAt: '2025-01-15T08:00:00.000Z',
-    updatedAt: '2025-01-15T08:00:00.000Z',
-    deletedAt: null,
-  },
-  {
-    id: 'staff-pdima-002',
-    matricule: 'REK-RH-002',
-    firstName: 'Haingo',
-    lastName: 'Ravelomanana',
-    cin: '108242000119',
-    sex: 'F',
-    birthDate: '1993-09-24',
-    phone: '+261 33 45 890 22',
-    email: 'haingo.ravelo@rekoma.org',
-    address: 'Ambatolampy, Vakinankaratra',
-    position: 'Responsable Suivi-Évaluation',
-    department: 'Suivi-Évaluation',
-    hireDate: '2025-03-01',
-    status: 'active',
-    evaluationScore: 4.8,
-    professionalNotes: 'Collecte des indicateurs d’impact communautaire et tableaux de bord trimestriels.',
-    memberId: null,
-    contracts: [
-      {
-        id: 'ctr-pdima-002',
-        staffId: 'staff-pdima-002',
-        contractType: 'CDD',
-        startDate: '2025-03-01',
-        endDate: '2027-02-28',
-        salary: 1400000,
-        assignmentLocation: 'Siège & Communes PDIMA',
-        status: 'active',
-        notes: 'CDD projet 24 mois renouvelable.',
-      },
-    ],
-    createdAt: '2025-03-01T08:00:00.000Z',
-    updatedAt: '2025-03-01T08:00:00.000Z',
-    deletedAt: null,
-  },
-]
+export async function getDeletedBeneficiaryIds(): Promise<string[]> {
+  return readJson<string[]>('deleted_beneficiaries.json', [])
+}
+
+export async function markBeneficiaryDeleted(id: string): Promise<void> {
+  const list = await getDeletedBeneficiaryIds()
+  if (!list.includes(id)) {
+    list.push(id)
+    await writeJson('deleted_beneficiaries.json', list)
+  }
+  const extensions = await getBeneficiaryExtensions()
+  if (extensions[id]) {
+    delete extensions[id]
+    await writeJson('beneficiary_extensions.json', extensions)
+  }
+  const locals = await getLocalBeneficiaries()
+  await writeJson(
+    'local_beneficiaries.json',
+    locals.filter((b) => b.id !== id)
+  )
+}
+
+export async function unmarkBeneficiaryDeleted(id: string): Promise<void> {
+  const list = await getDeletedBeneficiaryIds()
+  if (list.includes(id)) {
+    await writeJson('deleted_beneficiaries.json', list.filter((item) => item !== id))
+  }
+}
+
+export async function getLocalBeneficiaries(): Promise<any[]> {
+  return readJson<any[]>('local_beneficiaries.json', [])
+}
+
+export async function saveLocalBeneficiary(item: any): Promise<void> {
+  await unmarkBeneficiaryDeleted(item.id)
+  const list = await getLocalBeneficiaries()
+  await writeJson('local_beneficiaries.json', [item, ...list.filter((b) => b.id !== item.id)])
+}
+
+const DEFAULT_STAFF_SEED: StaffRecord[] = []
 
 export async function getLocalPersonnel(): Promise<StaffRecord[]> {
   return readJson<StaffRecord[]>('personnel_records.json', DEFAULT_STAFF_SEED)

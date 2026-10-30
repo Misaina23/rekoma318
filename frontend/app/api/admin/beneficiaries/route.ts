@@ -5,6 +5,9 @@ import {
   getBeneficiaryExtensions,
   getPivotState,
   saveBeneficiaryExtension,
+  getDeletedBeneficiaryIds,
+  getLocalBeneficiaries,
+  saveLocalBeneficiary,
 } from '@/lib/server/relational'
 
 export const dynamic = 'force-dynamic'
@@ -89,12 +92,15 @@ export async function GET(req: NextRequest) {
   const pageNum = Math.max(1, Number(req.nextUrl.searchParams.get('page')) || 1)
 
   try {
-    const [extensions, pivot, fmRes] = await Promise.all([
+    const [extensions, pivot, fmRes, deletedIdsList, localBeneficiaries] = await Promise.all([
       getBeneficiaryExtensions(),
       getPivotState(),
       remoteFormations.list(undefined, undefined, undefined, undefined, '1', authHeader, true).catch(() => null),
+      getDeletedBeneficiaryIds(),
+      getLocalBeneficiaries(),
     ])
 
+    const deletedIdsSet = new Set(deletedIdsList || [])
     const formationsTitleMap = new Map<string, { title: string; session?: string | null; status?: string | null }>()
     for (const f of fmRes?.items || []) {
       formationsTitleMap.set(f.id, { title: f.title, session: f.session, status: f.status })
@@ -112,7 +118,7 @@ export async function GET(req: NextRequest) {
       '1',
       authHeader,
       true
-    )
+    ).catch(() => ({ items: [], totalPages: 1 }))
 
     let allItems: any[] = Array.isArray(firstPage?.items) ? [...firstPage.items] : []
     const remoteTotalPages = Number(firstPage?.totalPages) || 1
@@ -129,7 +135,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    let normalized = allItems
+    // Merge remote items and local beneficiaries, skipping any deleted ones
+    const itemMap = new Map<string, any>()
+    for (const b of allItems) {
+      if (!b?.id || deletedIdsSet.has(b.id)) continue
+      itemMap.set(b.id, b)
+    }
+    for (const lb of localBeneficiaries || []) {
+      if (!lb?.id || deletedIdsSet.has(lb.id)) continue
+      // Local may contain fresher updates
+      itemMap.set(lb.id, { ...(itemMap.get(lb.id) || {}), ...lb })
+    }
+
+    const mergedItems = Array.from(itemMap.values())
+
+    let normalized = mergedItems
       .filter((b) => (b.category || '') !== 'Emploi' || extensions[b.id]?.category)
       .map((b) =>
         normalizeBeneficiary(b, extensions, pivot.enrollments || [], unenrolledSet, formationsTitleMap)
@@ -204,8 +224,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const created = await remoteBeneficiaries.create(payload, authHeader)
-    const item = created?.item || created
+    let item: any = null
+    try {
+      const created = await remoteBeneficiaries.create(payload, authHeader)
+      item = created?.item || created
+    } catch (remoteErr: any) {
+      console.warn('remote create error, saving locally fallback:', remoteErr.message)
+      const crypto = await import('crypto')
+      item = {
+        id: crypto.randomUUID(),
+        ...payload,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    }
+
     if (item?.id) {
       await saveBeneficiaryExtension(item.id, {
         email: payload.email,
@@ -214,7 +247,16 @@ export async function POST(req: NextRequest) {
         notes: payload.notes,
         category: payload.category,
       })
+      await saveLocalBeneficiary({
+        ...item,
+        email: payload.email,
+        fokontany: payload.fokontany,
+        householdSize: payload.householdSize,
+        notes: payload.notes,
+        category: payload.category,
+      })
     }
+
     return NextResponse.json(
       {
         ...item,

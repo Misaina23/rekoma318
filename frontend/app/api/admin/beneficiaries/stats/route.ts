@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { requireAuth } from '@/lib/server/guard'
 import { remoteBeneficiaries } from '@/lib/server/remote'
-import { getBeneficiaryExtensions, getPivotState } from '@/lib/server/relational'
+import {
+  getBeneficiaryExtensions,
+  getPivotState,
+  getDeletedBeneficiaryIds,
+  getLocalBeneficiaries,
+} from '@/lib/server/relational'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,14 +29,17 @@ export async function GET(req: NextRequest) {
   if (res) return res
 
   try {
-    const [extensions, pivot, firstPage] = await Promise.all([
+    const [extensions, pivot, deletedIdsList, localBeneficiaries, firstPage] = await Promise.all([
       getBeneficiaryExtensions(),
       getPivotState(),
+      getDeletedBeneficiaryIds(),
+      getLocalBeneficiaries(),
       remoteBeneficiaries
         .list(undefined, undefined, undefined, undefined, undefined, undefined, '1', authHeader, true)
         .catch(() => ({ items: [], totalPages: 1 })),
     ])
 
+    const deletedIdsSet = new Set(deletedIdsList || [])
     let allItems: any[] = Array.isArray(firstPage?.items) ? [...firstPage.items] : []
     const totalPages = Number(firstPage?.totalPages) || 1
     if (totalPages > 1 && allItems.length < (Number(firstPage?.total) || 0)) {
@@ -47,7 +55,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const valid = allItems.filter((b) => (b.category || '') !== 'Emploi' || extensions[b.id]?.category)
+    const itemMap = new Map<string, any>()
+    for (const b of allItems) {
+      if (!b?.id || deletedIdsSet.has(b.id)) continue
+      itemMap.set(b.id, b)
+    }
+    for (const lb of localBeneficiaries || []) {
+      if (!lb?.id || deletedIdsSet.has(lb.id)) continue
+      itemMap.set(lb.id, { ...(itemMap.get(lb.id) || {}), ...lb })
+    }
+
+    const mergedItems = Array.from(itemMap.values())
+    const valid = mergedItems.filter((b) => (b.category || '') !== 'Emploi' || extensions[b.id]?.category)
     const breakdown: Record<string, number> = {}
     for (const c of CATEGORIES) breakdown[c] = 0
 

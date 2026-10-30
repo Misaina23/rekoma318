@@ -159,6 +159,9 @@ export default function BeneficiariesPage() {
 
   async function remove(id: string) {
     if (!(await confirmDialog(t.admin.confirmDelete))) return
+    setItems((prev) => prev.filter((m) => m.id !== id))
+    setStats((prev) => (prev ? { ...prev, total: Math.max(0, prev.total - 1), active: Math.max(0, prev.active - 1) } : null))
+    if (selected?.id === id) setSelected(null)
     try {
       const r = await fetch(`/api/admin/beneficiaries/${id}`, {
         method: 'DELETE',
@@ -170,14 +173,14 @@ export default function BeneficiariesPage() {
         throw new Error(d.message || 'Erreur lors de la suppression')
       }
       toast('Bénéficiaire supprimé ✓', 'success')
-      if (selected?.id === id) setSelected(null)
-      if (items.length === 1 && page > 1) {
+      if (items.length <= 1 && page > 1) {
         setPage((p) => Math.max(1, p - 1))
       } else {
         load()
       }
     } catch (e: any) {
       toast(e.message || 'Erreur lors de la suppression', 'error')
+      load()
     }
   }
 
