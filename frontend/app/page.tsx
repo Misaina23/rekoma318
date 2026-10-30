@@ -86,15 +86,15 @@ export default function HomePage() {
             <SectionHeading align="center" eyebrow={t.home.impactTitle} title={t.impact.title} description={t.home.impactText} />
           </Reveal>
           <Stagger className="mt-10 grid gap-x-8 gap-y-7 sm:grid-cols-2 lg:grid-cols-3">
-            {t.pdima.axes.slice(0, 6).map((a) => {
+            {t.home.domains.map((d, idx) => {
               return (
-                <StaggerItem key={a.n}>
+                <StaggerItem key={d.title}>
                   <div className="h-full border-t border-border pt-5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Axe {String(a.n).padStart(2, '0')}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                      {String(idx + 1).padStart(2, '0')}
                     </p>
-                    <h3 className="mt-3 font-semibold">{a.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{a.text}</p>
+                    <h3 className="mt-2 font-semibold text-foreground">{d.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{d.text}</p>
                   </div>
                 </StaggerItem>
               )

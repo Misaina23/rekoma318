@@ -8,7 +8,7 @@ export type SearchEntry = {
 export const searchIndex: SearchEntry[] = [
   { href: '/', fr: 'Accueil', en: 'Home', keywords: 'accueil home rekoma presentation' },
   { href: '/a-propos', fr: 'À propos', en: 'About', keywords: 'histoire mission vision valeurs zone' },
-  { href: '/pdima', fr: 'Projet PDIMA', en: 'PDIMA Project', keywords: 'pdima developpement integre axes agriculture eau formation transport kpsv avicole' },
+  { href: '/pdima', fr: 'Projet PDIMA', en: 'PDIMA Project', keywords: 'pdima developpement integre agriculture eau formation transport kpsv avicole' },
   { href: '/articles', fr: 'Vente d’articles REKOMA', en: 'REKOMA shop', keywords: 'boutique tee-shirt polo commande vêtements' },
   { href: '/gouvernance', fr: 'Gouvernance', en: 'Governance', keywords: 'bureau executif fondateur president secretaire tresoriere conseiller' },
   { href: '/documents', fr: 'Documents', en: 'Documents', keywords: 'statuts pv procede verbal rapport pdf' },

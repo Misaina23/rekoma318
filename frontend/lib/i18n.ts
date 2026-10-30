@@ -55,7 +55,33 @@ export const fr = {
       'PDIMA associe développement économique, services de proximité et initiatives communautaires pour accompagner l’évolution de Midongy Atsimo.',
     projectsTitle: 'Le projet phare : PDIMA',
     projectsText:
-      "PDIMA (Projet de Développement Intégré de Midongy Atsimo) structure sept axes complémentaires pour répondre aux déficits de développement de la commune.",
+      "PDIMA (Projet de Développement Intégré de Midongy Atsimo) est l’initiative structurante de REKOMA combinant développement économique, services essentiels et formation locale.",
+    domains: [
+      {
+        title: 'Agriculture & Sécurité alimentaire',
+        text: 'Développement de filières vivrières durables, maraîchage local et techniques rizicoles améliorées (SRI).',
+      },
+      {
+        title: 'Accès à l’eau potable & Assainissement',
+        text: 'Installation d’infrastructures hydrauliques de proximité et comités communautaires de gestion de l’eau.',
+      },
+      {
+        title: 'Formation professionnelle & Compétences',
+        text: 'Ateliers pratiques, renforcement des compétences paysannes et accompagnement de l’autonomie des jeunes.',
+      },
+      {
+        title: 'Commerce équitable & Approvisionnement',
+        text: 'Sécurisation des denrées de première nécessité et soutien aux producteurs locaux à prix justes.',
+      },
+      {
+        title: 'Transport rural & Désenclavement',
+        text: 'Facilitation de la mobilité, logistique rurale et désenclavement des zones reculées de Midongy.',
+      },
+      {
+        title: 'Inclusion sociale & Dynamique communautaire',
+        text: 'Promotion active de la participation des femmes, des jeunes et valorisation du patrimoine local.',
+      },
+    ],
     partnersTitle: 'Construisons des projets utiles ensemble',
     partnersText:
       'Entreprises, artisans, institutions, associations et partenaires techniques peuvent contribuer à des initiatives locales solides, créatrices d’activité et d’opportunités.',
@@ -119,7 +145,7 @@ export const fr = {
     title: 'Projet PDIMA',
     subtitle: 'Projet de Développement Intégré de Midongy Atsimo',
     intro:
-      'PDIMA est le projet principal porté par REKOMA. Il propose sept axes d’intervention complémentaires et synergiques pour répondre aux déficits chroniques de développement de la commune rurale de Midongy Atsimo.',
+      'PDIMA est le projet d’action porté par REKOMA pour répondre aux défis socio-économiques et accompagner l’autonomie durable de la commune rurale de Midongy Atsimo.',
     contextTitle: 'Contexte',
     context:
       'Midongy Atsimo est l’une des zones les plus enclavées de la région Atsimo-Atsinanana. L’économie locale reste peu diversifiée et l’accès aux services essentiels est insuffisant.',
@@ -327,7 +353,7 @@ export const fr = {
       },
       {
         q: 'Quel est le projet principal ?',
-        a: 'Le projet principal est PDIMA (Projet de Développement Intégré de Midongy Atsimo), structuré autour de sept axes d’intervention.',
+        a: 'Le projet principal est PDIMA (Projet de Développement Intégré de Midongy Atsimo), structuré autour d’un programme d’action communautaire intégré.',
       },
       {
         q: 'Quelle est la zone d’intervention ?',
@@ -379,7 +405,7 @@ export const fr = {
     invalid: 'Identifiants invalides.',
     members: 'Membres',
     donations: 'Dons',
-    nav: { dashboard: 'Tableau de bord', members: 'Membres', beneficiaries: 'Bénéficiaires', personnel: 'Personnel', messages: 'Messages', activities: 'Activités', formations: 'Formations', donations: 'Dons', orders: 'Commandes', products: 'Articles', news: 'Actualités', gallery: 'Galerie', documents: 'Documents', settings: 'Paramètres', analytics: 'Analytics' },
+    nav: { dashboard: 'Tableau de bord', pdima: 'Projet PDIMA', members: 'Membres', beneficiaries: 'Bénéficiaires', personnel: 'Personnel', messages: 'Messages', activities: 'Activités', formations: 'Formations', donations: 'Dons', orders: 'Commandes', products: 'Articles', news: 'Actualités', gallery: 'Galerie', documents: 'Documents', settings: 'Paramètres', analytics: 'Analytics' },
     search: 'Recherche globale',
     command: 'Commande',
     notifications: 'Notifications',
@@ -484,7 +510,33 @@ export const en: typeof fr = {
       'PDIMA brings together economic development, local services and community initiatives to support the progress of Midongy Atsimo.',
     projectsTitle: 'Flagship project: PDIMA',
     projectsText:
-      'PDIMA (Projet de Développement Intégré de Midongy Atsimo) structures seven complementary axes to address the commune’s chronic development gaps.',
+      'PDIMA (Projet de Développement Intégré de Midongy Atsimo) is REKOMA’s integrated initiative combining economic development, essential services and local capacity building.',
+    domains: [
+      {
+        title: 'Agriculture & Food security',
+        text: 'Developing sustainable food crops, community gardening and improved rice production systems (SRI).',
+      },
+      {
+        title: 'Clean water & Sanitation',
+        text: 'Installing local clean water fountains and fostering community-led water management committees.',
+      },
+      {
+        title: 'Vocational training & Skills',
+        text: 'Practical capacity-building workshops, rural skills enhancement, and empowering young people.',
+      },
+      {
+        title: 'Fair trade & Local supply',
+        text: 'Securing essential goods supply and supporting local producers with fair compensation.',
+      },
+      {
+        title: 'Rural transport & Accessibility',
+        text: 'Facilitating mobility, essential freight transport, and connecting remote areas of Midongy.',
+      },
+      {
+        title: 'Social inclusion & Community solidarity',
+        text: 'Promoting youth and women empowerment along with local heritage revitalization.',
+      },
+    ],
     partnersTitle: 'Let’s build useful projects together',
     partnersText:
       'Businesses, artisans, institutions, associations and technical partners can contribute to strong local initiatives that create activity and opportunity.',
@@ -548,7 +600,7 @@ export const en: typeof fr = {
     title: 'PDIMA Project',
     subtitle: 'Projet de Développement Intégré de Midongy Atsimo',
     intro:
-      'PDIMA is the main project led by REKOMA. It proposes seven complementary and synergistic areas of intervention to address the chronic development gaps of the rural commune of Midongy Atsimo.',
+      'PDIMA is the core initiative led by REKOMA to address socioeconomic challenges and support sustainable self-reliance in the rural commune of Midongy Atsimo.',
     contextTitle: 'Context',
     context:
       'Midongy Atsimo is one of the most isolated areas of the Atsimo-Atsinanana region. The local economy remains undiversified and access to essential services is insufficient.',
@@ -727,7 +779,7 @@ export const en: typeof fr = {
       },
       {
         q: 'What is the main project?',
-        a: 'The main project is PDIMA (Projet de Développement Intégré de Midongy Atsimo), structured around seven areas of intervention.',
+        a: 'The main project is PDIMA (Projet de Développement Intégré de Midongy Atsimo), structured around an integrated community action program.',
       },
       {
         q: 'What is the area of intervention?',
@@ -779,7 +831,7 @@ export const en: typeof fr = {
     invalid: 'Invalid credentials.',
     members: 'Members',
     donations: 'Donations',
-    nav: { dashboard: 'Dashboard', members: 'Members', beneficiaries: 'Beneficiaries', personnel: 'Staff & HR', messages: 'Messages', activities: 'Activities', formations: 'Trainings', donations: 'Donations', orders: 'Orders', products: 'Products', news: 'News', gallery: 'Gallery', documents: 'Documents', settings: 'Settings', analytics: 'Analytics' },
+    nav: { dashboard: 'Dashboard', pdima: 'PDIMA Project', members: 'Members', beneficiaries: 'Beneficiaries', personnel: 'Staff & HR', messages: 'Messages', activities: 'Activities', formations: 'Trainings', donations: 'Donations', orders: 'Orders', products: 'Products', news: 'News', gallery: 'Gallery', documents: 'Documents', settings: 'Settings', analytics: 'Analytics' },
     search: 'Global search',
     command: 'Command',
     notifications: 'Notifications',

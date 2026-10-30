@@ -14,6 +14,7 @@ import {
   FileText,
   BarChart3,
   Settings,
+  Layers,
   type LucideIcon,
 } from 'lucide-react'
 import type { Capability } from '@/lib/roles'
@@ -27,6 +28,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/admin', key: 'dashboard', icon: LayoutDashboard, capability: 'view_dashboard' },
+  { href: '/admin/pdima', key: 'pdima', icon: Layers, capability: 'view_dashboard' },
   { href: '/admin/members', key: 'members', icon: Users, capability: 'manage_members' },
   { href: '/admin/beneficiaries', key: 'beneficiaries', icon: UserCheck, capability: 'manage_beneficiaries' },
   { href: '/admin/personnel', key: 'personnel', icon: Briefcase, capability: 'manage_personnel' },
