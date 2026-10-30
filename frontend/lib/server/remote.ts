@@ -190,21 +190,29 @@ export const remoteActivities = {
   remove: (id: string, authHeader?: string | null) => call(`/api/cms/activities/${id}`, { method: 'DELETE' }, authHeader),
 }
 
-// ---------- Formations ----------
+// ---------- Formations + Pivot formation_beneficiaire ----------
 export const remoteFormations = {
-  list: (q?: string, status?: string, from?: string, to?: string, page?: string, authHeader?: string | null) => {
+  list: (q?: string, status?: string, from?: string, to?: string, page?: string, authHeader?: string | null, all?: boolean) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (status) params.set('status', status)
     if (from) params.set('from', from)
     if (to) params.set('to', to)
     if (page) params.set('page', page)
+    if (all) params.set('all', '1')
     const qs = params.toString()
     return call(`/api/cms/formations${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
   },
   create: (body: any, authHeader?: string | null) => call('/api/cms/formations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
   update: (id: string, body: any, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
   remove: (id: string, authHeader?: string | null) => call(`/api/cms/formations/${id}`, { method: 'DELETE' }, authHeader),
+  listEnrollments: (id: string, authHeader?: string | null) => call(`/api/cms/formations/${id}/enrollments`, {}, authHeader).then((d) => d as any),
+  enroll: (id: string, body: any, authHeader?: string | null) =>
+    call(`/api/cms/formations/${id}/enrollments`, { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+  updateEnrollment: (id: string, beneficiaryId: string, body: any, authHeader?: string | null) =>
+    call(`/api/cms/formations/${id}/enrollments/${beneficiaryId}`, { method: 'PATCH', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+  unenroll: (id: string, beneficiaryId: string, authHeader?: string | null) =>
+    call(`/api/cms/formations/${id}/enrollments/${beneficiaryId}`, { method: 'DELETE' }, authHeader).then((d) => d as any),
 }
 
 // ---------- Members ----------
@@ -287,7 +295,7 @@ export const remoteCms = {
 
 // ---------- Beneficiaries ----------
 export const remoteBeneficiaries = {
-  list: (q?: string, category?: string, formationId?: string, status?: string, sex?: string, commune?: string, page?: string, authHeader?: string | null) => {
+  list: (q?: string, category?: string, formationId?: string, status?: string, sex?: string, commune?: string, page?: string, authHeader?: string | null, all?: boolean) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (category) params.set('category', category)
@@ -296,6 +304,7 @@ export const remoteBeneficiaries = {
     if (sex) params.set('sex', sex)
     if (commune) params.set('commune', commune)
     if (page) params.set('page', page)
+    if (all) params.set('all', '1')
     const qs = params.toString()
     return call(`/api/beneficiaries${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
   },
@@ -305,12 +314,36 @@ export const remoteBeneficiaries = {
   remove: (id: string, authHeader?: string | null) => call(`/api/beneficiaries/${id}`, { method: 'DELETE' }, authHeader),
 }
 
-// ---------- Public submissions ----------
+// ---------- Personnel & Contrats ----------
+export const remotePersonnel = {
+  list: (q?: string, department?: string, status?: string, contractType?: string, page?: string, authHeader?: string | null, all?: boolean) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (department) params.set('department', department)
+    if (status) params.set('status', status)
+    if (contractType) params.set('contractType', contractType)
+    if (page) params.set('page', page)
+    if (all) params.set('all', '1')
+    const qs = params.toString()
+    return call(`/api/personnel${qs ? `?${qs}` : ''}`, {}, authHeader).then((d) => d as any)
+  },
+  stats: (authHeader?: string | null) => call('/api/personnel/stats', {}, authHeader).then((d) => d as any),
+  create: (body: any, authHeader?: string | null) => call('/api/personnel', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+  update: (id: string, body: any, authHeader?: string | null) => call(`/api/personnel/${id}`, { method: 'PUT', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+  remove: (id: string, authHeader?: string | null) => call(`/api/personnel/${id}`, { method: 'DELETE' }, authHeader),
+  addContract: (id: string, body: any, authHeader?: string | null) =>
+    call(`/api/personnel/${id}/contracts`, { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => d as any),
+}
+
+// ---------- Public submissions & Analytics ----------
 export const remotePublic = {
   postMessage: (body: any, authHeader?: string | null) => call('/api/messages', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
   postDonation: (body: any, authHeader?: string | null) => call('/api/donations', { method: 'POST', body: JSON.stringify(body) }, authHeader).then((d) => unwrap<any>(d)),
-  postVisit: (authHeader?: string | null) => call('/api/visits', { method: 'POST' }, authHeader),
+  postVisit: (body?: any, authHeader?: string | null) =>
+    call('/api/visits', { method: 'POST', body: JSON.stringify(body || {}) }, authHeader),
+  getVisits: () => call('/api/visits', {}, null).then((d) => d as any),
   publicStats: () => call('/api/stats/public', {}, null).then((d) => d as any),
+  dashboardStats: (authHeader?: string | null) => call('/api/stats/dashboard', {}, authHeader).then((d) => d as any),
 }
 
 // ---------- Payments ----------

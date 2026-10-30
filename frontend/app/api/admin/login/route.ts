@@ -3,6 +3,7 @@ import { API, registerRefreshPair } from '@/lib/server/remote'
 import { createSession, verifyCredentials } from '@/lib/server/auth'
 import { extractCookieFromResponse } from '@/lib/server/guard'
 import { checkRateLimit, resetRateLimit } from '@/lib/server/rateLimit'
+import { recordRuntimeVisit } from '@/lib/server/relational'
 
 export async function POST(req: NextRequest) {
   const isSecure = req.headers.get('x-forwarded-proto') === 'https' || req.nextUrl.protocol === 'https:'
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
       if (backendAccessToken && backendRefreshToken) {
         registerRefreshPair(backendAccessToken, backendRefreshToken)
       }
+      await recordRuntimeVisit({ path: '/admin/login', visitorId: user.email, isAdmin: true }).catch(() => {})
       const res = NextResponse.json({
         ok: true,
         requiresTwoFactor: false,
@@ -132,6 +134,7 @@ export async function POST(req: NextRequest) {
   // Local administrative credentials fallback if remote is offline
   if (verifyCredentials(email, password)) {
     resetRateLimit(rateLimitKey)
+    await recordRuntimeVisit({ path: '/admin/login', visitorId: email, isAdmin: true }).catch(() => {})
     const sessionToken = createSession(email, 'super_admin')
     const res = NextResponse.json({
       ok: true,

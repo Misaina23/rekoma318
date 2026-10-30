@@ -3,32 +3,13 @@ import http from 'http'
 import os from 'os'
 import app from './app.js'
 import { verifySMTP } from './utils/mail.js'
-import { prisma } from './lib/prisma.js'
+import { ensureRelationalSchema } from './lib/ensureSchema.js'
 
 const PORT = process.env.PORT || 4000
 const HOST = process.env.HOST || '0.0.0.0'
 
-async function ensureDatabaseColumns() {
-  const statements = [
-    'ALTER TABLE "Beneficiary" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)',
-    'ALTER TABLE "Member" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)',
-    'ALTER TABLE "Member" ADD COLUMN IF NOT EXISTS "designation" TEXT',
-    'ALTER TABLE "Member" ADD COLUMN IF NOT EXISTS "description" TEXT',
-    'ALTER TABLE "Member" ADD COLUMN IF NOT EXISTS "displayOrder" INTEGER NOT NULL DEFAULT 999',
-    'ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)',
-    'ALTER TABLE "Donation" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ(6)',
-  ]
-  for (const sql of statements) {
-    try {
-      await prisma.$executeRawUnsafe(sql)
-    } catch (e) {
-      console.warn('[boot] Schema check warning:', e.message)
-    }
-  }
-}
-
 async function boot() {
-  await ensureDatabaseColumns()
+  await ensureRelationalSchema()
 
   try {
     const smtp = await verifySMTP()

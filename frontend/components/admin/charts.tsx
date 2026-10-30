@@ -22,13 +22,19 @@ export function StatCard({
         ? 'bg-secondary text-muted-foreground'
         : 'bg-primary/10 text-primary'
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
-        {icon && <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>{icon}</span>}
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground sm:text-sm">{label}</span>
+        {icon && (
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+            {icon}
+          </span>
+        )}
       </div>
-      <div className="mt-3 text-2xl font-bold tracking-tight">{value}</div>
-      {delta && <p className="mt-1 text-xs text-muted-foreground">{delta}</p>}
+      <div className="mt-2.5 text-xl font-bold tracking-tight text-foreground tabular-nums sm:text-2xl">
+        {value}
+      </div>
+      {delta && <p className="mt-1 text-xs text-muted-foreground tabular-nums">{delta}</p>}
     </div>
   )
 }
@@ -36,7 +42,7 @@ export function StatCard({
 export function LineChart({
   data,
   labels,
-  height = 160,
+  height = 170,
   color = 'hsl(var(--primary))',
 }: {
   data: number[]
@@ -44,28 +50,49 @@ export function LineChart({
   height?: number
   color?: string
 }) {
-  const w = 600
+  const w = 640
   const max = Math.max(...data, 1)
-  const min = Math.min(...data, 0)
+  const min = 0
   const span = max - min || 1
-  const step = data.length > 1 ? w / (data.length - 1) : w
+  const padX = 16
+  const innerW = w - padX * 2
+  const step = data.length > 1 ? innerW / (data.length - 1) : innerW
   const pts = data.map((d, i) => {
-    const x = i * step
-    const y = height - ((d - min) / span) * (height - 20) - 10
+    const x = padX + i * step
+    const y = height - ((d - min) / span) * (height - 34) - 22
     return [x, y]
   })
   const line = pts.map((p) => p.join(',')).join(' ')
-  const area = `0,${height} ${line} ${w},${height}`
+  const area = `${padX},${height - 20} ${line} ${padX + innerW},${height - 20}`
   return (
-    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none" role="img">
-      <polygon points={area} fill={color} opacity={0.08} />
-      <polyline points={line} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" role="img">
+      <polygon points={area} fill={color} opacity={0.1} />
+      <polyline
+        points={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {pts.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r={3} fill={color} />
+      ))}
       {labels &&
-        labels.map((l, i) => (
-          <text key={i} x={i * step} y={height - 2} fontSize={11} fill="hsl(var(--muted-foreground))">
-            {l}
-          </text>
-        ))}
+        labels.map((l, i) =>
+          i % 2 === 0 || i === labels.length - 1 ? (
+            <text
+              key={i}
+              x={padX + i * step}
+              y={height - 4}
+              fontSize={10}
+              textAnchor="middle"
+              fill="hsl(var(--muted-foreground))"
+            >
+              {l}
+            </text>
+          ) : null
+        )}
     </svg>
   )
 }
@@ -73,7 +100,7 @@ export function LineChart({
 export function BarChart({
   data,
   labels,
-  height = 160,
+  height = 175,
   color = 'hsl(var(--primary))',
 }: {
   data: number[]
@@ -81,20 +108,46 @@ export function BarChart({
   height?: number
   color?: string
 }) {
-  const w = 600
+  const w = 640
   const max = Math.max(...data, 1)
-  const gap = 12
+  const gap = 10
   const bw = data.length ? (w - gap * (data.length - 1)) / data.length : w
   return (
-    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" preserveAspectRatio="none" role="img">
+    <svg viewBox={`0 0 ${w} ${height}`} className="w-full" role="img">
       {data.map((d, i) => {
-        const h = (d / max) * (height - 22)
+        const rawH = (d / max) * (height - 36)
+        const h = d > 0 ? Math.max(6, rawH) : 3
         const x = i * (bw + gap)
         return (
           <g key={i}>
-            <rect x={x} y={height - h - 18} width={bw} height={h} rx={5} fill={color} opacity={0.85} />
-            {labels && (
-              <text x={x + bw / 2} y={height - 4} fontSize={11} textAnchor="middle" fill="hsl(var(--muted-foreground))">
+            <rect
+              x={x}
+              y={height - h - 20}
+              width={bw}
+              height={h}
+              rx={5}
+              fill={color}
+              opacity={d > 0 ? 0.88 : 0.2}
+            />
+            {d > 0 && (
+              <text
+                x={x + bw / 2}
+                y={Math.max(11, height - h - 25)}
+                fontSize={10}
+                textAnchor="middle"
+                fill="hsl(var(--foreground))"
+              >
+                {d}
+              </text>
+            )}
+            {labels && (i % 2 === 0 || i === labels.length - 1) && (
+              <text
+                x={x + bw / 2}
+                y={height - 4}
+                fontSize={10}
+                textAnchor="middle"
+                fill="hsl(var(--muted-foreground))"
+              >
                 {labels[i]}
               </text>
             )}
@@ -107,46 +160,56 @@ export function BarChart({
 
 export function DonutChart({
   segments,
-  size = 160,
+  size = 148,
 }: {
   segments: { value: number; color: string; label: string }[]
   size?: number
 }) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1
+  const sum = segments.reduce((s, x) => s + x.value, 0)
+  const total = sum || 1
   const r = size / 2 - 14
   const c = size / 2
   let offset = 0
   return (
-    <div className="flex items-center gap-5">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img">
-        <circle cx={c} cy={c} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={14} />
-        {segments.map((s, i) => {
-          const frac = s.value / total
-          const dash = frac * 2 * Math.PI * r
-          const el = (
-            <circle
-              key={i}
-              cx={c}
-              cy={c}
-              r={r}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={14}
-              strokeDasharray={`${dash} ${2 * Math.PI * r}`}
-              strokeDashoffset={-offset}
-              transform={`rotate(-90 ${c} ${c})`}
-            />
-          )
-          offset += dash
-          return el
-        })}
-      </svg>
-      <ul className="space-y-1.5 text-sm">
+    <div className="flex flex-col items-center gap-4 sm:flex-row sm:gap-5">
+      <div className="relative shrink-0">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img">
+          <circle cx={c} cy={c} r={r} fill="none" stroke="hsl(var(--border))" strokeWidth={14} />
+          {sum > 0 &&
+            segments.map((s, i) => {
+              const frac = s.value / total
+              const dash = frac * 2 * Math.PI * r
+              const el = (
+                <circle
+                  key={i}
+                  cx={c}
+                  cy={c}
+                  r={r}
+                  fill="none"
+                  stroke={s.color}
+                  strokeWidth={14}
+                  strokeDasharray={`${dash} ${2 * Math.PI * r}`}
+                  strokeDashoffset={-offset}
+                  transform={`rotate(-90 ${c} ${c})`}
+                />
+              )
+              offset += dash
+              return el
+            })}
+        </svg>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+          <span className="text-lg font-bold text-foreground tabular-nums">{sum}</span>
+          <span className="text-[10px] text-muted-foreground">Total</span>
+        </div>
+      </div>
+      <ul className="w-full flex-1 space-y-2 text-xs sm:text-sm">
         {segments.map((s, i) => (
-          <li key={i} className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded-full" style={{ background: s.color }} />
-            <span className="text-muted-foreground">{s.label}</span>
-            <span className="ml-auto font-medium">{s.value}</span>
+          <li key={i} className="flex items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: s.color }} />
+              <span className="truncate text-muted-foreground">{s.label}</span>
+            </span>
+            <span className="font-semibold text-foreground tabular-nums">{s.value}</span>
           </li>
         ))}
       </ul>

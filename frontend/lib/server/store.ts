@@ -1,29 +1,34 @@
-// In-memory cache used as a fallback when the filesystem is not writable
-// (e.g. Vercel serverless functions run on a read-only filesystem).
+import os from 'os'
+import path from 'path'
+
+// In-memory cache + OS temp directory persistence so runtime state never dirties
+// the Git workspace and degrades gracefully on read-only serverless filesystems.
 const memory = new Map<string, unknown>()
 
-// Persisted JSON files live in the repo's data/ directory (read-only on Vercel).
-function resolve(file: string) {
-  return `data/${file}`
+function resolveRuntimePath(file: string) {
+  return path.join(os.tmpdir(), 'rekoma-runtime', file)
 }
 
-async function readFile(file: string): Promise<string | null> {
+function resolveSeedPath(file: string) {
+  return path.join(process.cwd(), 'data', file)
+}
+
+async function readFileSafe(filePath: string): Promise<string | null> {
   try {
     const fsMod = await import('fs')
-    const fs = fsMod.promises
-    return await fs.readFile(file, 'utf-8')
+    return await fsMod.promises.readFile(filePath, 'utf-8')
   } catch {
     return null
   }
 }
 
-async function writeFile(file: string, content: string) {
+async function writeFileSafe(filePath: string, content: string) {
   try {
     const fsMod = await import('fs')
-    const fs = fsMod.promises
-    await fs.writeFile(file, content, 'utf-8')
+    await fsMod.promises.mkdir(path.dirname(filePath), { recursive: true })
+    await fsMod.promises.writeFile(filePath, content, 'utf-8')
   } catch {
-    // Filesystem is read-only (Vercel) — ignore, data stays in memory only.
+    // Ignore on read-only filesystems; data stays in memory.
   }
 }
 
@@ -31,7 +36,9 @@ export async function readJson<T>(file: string, fallback: T): Promise<T> {
   const cached = memory.get(file)
   if (cached !== undefined) return cached as T
 
-  const raw = await readFile(resolve(file))
+  const runtimeRaw = await readFileSafe(resolveRuntimePath(file))
+  const raw = runtimeRaw !== null ? runtimeRaw : await readFileSafe(resolveSeedPath(file))
+
   if (raw === null) {
     memory.set(file, fallback)
     return fallback
@@ -48,5 +55,5 @@ export async function readJson<T>(file: string, fallback: T): Promise<T> {
 
 export async function writeJson(file: string, data: unknown) {
   memory.set(file, data)
-  await writeFile(resolve(file), JSON.stringify(data, null, 2))
+  await writeFileSafe(resolveRuntimePath(file), JSON.stringify(data, null, 2))
 }

@@ -26,6 +26,7 @@ export type Capability =
   | 'manage_messages'
   | 'messages.reply'
   | 'manage_beneficiaries'
+  | 'manage_personnel'
   | 'view_analytics'
   | 'manage_settings'
   | 'manage_roles'
@@ -59,6 +60,7 @@ const FULL: Capability[] = [
   'manage_messages',
   'messages.reply',
   'manage_beneficiaries',
+  'manage_personnel',
   'view_analytics',
   'manage_settings',
   'manage_roles',
@@ -87,6 +89,7 @@ export const ROLE_PERMISSIONS: Record<Role, Capability[]> = {
     'manage_messages',
     'messages.reply',
     'manage_beneficiaries',
+    'manage_personnel',
     'view_analytics',
   ],
   editor: ['view_dashboard', 'manage_news', 'manage_gallery', 'manage_documents', 'manage_products'],

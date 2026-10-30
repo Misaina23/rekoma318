@@ -74,6 +74,7 @@ async function main() {
     { key: 'manage_messages', label: 'Gérer les messages', category: 'messages' },
     { key: 'messages.reply', label: 'Répondre aux messages', category: 'messages' },
     { key: 'manage_beneficiaries', label: 'Gérer les bénéficiaires', category: 'beneficiaries' },
+    { key: 'manage_personnel', label: 'Gérer le personnel et contrats', category: 'personnel' },
     { key: 'view_analytics', label: 'Voir les analytiques', category: 'analytics' },
     { key: 'manage_settings', label: 'Gérer les paramètres', category: 'settings' },
     { key: 'manage_roles', label: 'Gérer les rôles', category: 'settings' },
@@ -106,6 +107,7 @@ async function main() {
       'manage_messages',
       'messages.reply',
       'manage_beneficiaries',
+      'manage_personnel',
       'view_analytics',
     ],
     formation_lead: ['view_dashboard', 'manage_formations', 'view_analytics'],
@@ -150,23 +152,109 @@ async function main() {
       title: 'Formation agriculture durable PDIMA',
       session: 'Session 2026',
       date: new Date('2026-08-01'),
-      participants: 30,
-      attendees: 28,
+      capacity: 30,
+      participants: 2,
+      attendees: 2,
       evaluation: 4.5,
       certificate: true,
       status: 'done',
     },
   })
 
-  await prisma.beneficiary.createMany({
-    data: [
-      { firstName: 'Jean', lastName: 'Rakoto', name: 'Rakoto Jean', category: 'Formation', formationId: formation.id, contact: '+261340000001', sex: 'M', status: 'active' },
-      { firstName: 'Fara', lastName: 'Rasoamanana', name: 'Rasoamanana Fara', category: 'Distribution', contact: '+261340000002', sex: 'F', status: 'active' },
-      { firstName: 'Mamy', lastName: 'Randrianasolo', name: 'Randrianasolo Mamy', category: 'Emploi', contact: '+261340000003', sex: 'M', status: 'active' },
-      { firstName: 'Tina', lastName: 'Vololona', name: 'Vololona Tina', category: 'Autre', contact: '+261340000004', sex: 'F', status: 'active' },
-    ],
-    skipDuplicates: true,
+  const ben1 = await prisma.beneficiary.upsert({
+    where: { cin: '201011000001' },
+    update: {},
+    create: {
+      firstName: 'Jean',
+      lastName: 'Rakoto',
+      cin: '201011000001',
+      name: 'Rakoto Jean',
+      category: 'Agriculture & SRI',
+      commune: 'Ambatolampy',
+      fokontany: 'Antsampandrano',
+      householdSize: 5,
+      phone: '+261340000001',
+      contact: '+261340000001',
+      sex: 'M',
+      status: 'active',
+    },
   })
+
+  const ben2 = await prisma.beneficiary.upsert({
+    where: { cin: '201012000002' },
+    update: {},
+    create: {
+      firstName: 'Fara',
+      lastName: 'Rasoamanana',
+      cin: '201012000002',
+      name: 'Rasoamanana Fara',
+      category: 'Maraîchage',
+      commune: 'Antsirabe',
+      fokontany: 'Manandona',
+      householdSize: 4,
+      phone: '+261340000002',
+      contact: '+261340000002',
+      sex: 'F',
+      status: 'active',
+    },
+  })
+
+  await prisma.formationEnrollment.upsert({
+    where: { formationId_beneficiaryId: { formationId: formation.id, beneficiaryId: ben1.id } },
+    update: {},
+    create: {
+      formationId: formation.id,
+      beneficiaryId: ben1.id,
+      attendanceStatus: 'present',
+      evaluationScore: 4.5,
+      certificateIssued: true,
+    },
+  })
+
+  await prisma.formationEnrollment.upsert({
+    where: { formationId_beneficiaryId: { formationId: formation.id, beneficiaryId: ben2.id } },
+    update: {},
+    create: {
+      formationId: formation.id,
+      beneficiaryId: ben2.id,
+      attendanceStatus: 'present',
+      evaluationScore: 4.8,
+      certificateIssued: true,
+    },
+  })
+
+  const staff1 = await prisma.staff.upsert({
+    where: { matricule: 'REK-RH-001' },
+    update: {},
+    create: {
+      matricule: 'REK-RH-001',
+      firstName: 'Mamy',
+      lastName: 'Randrianasolo',
+      cin: '101231000003',
+      sex: 'M',
+      phone: '+261340000003',
+      email: 'mamy.randria@rekoma.org',
+      position: 'Technicien Agricole Principal',
+      department: 'Vulgarisation Agricole',
+      status: 'active',
+      evaluationScore: 4.6,
+      professionalNotes: 'Encadrement terrain des coopératives rizicoles.',
+    },
+  })
+
+  const existingContracts = await prisma.employmentContract.count({ where: { staffId: staff1.id } })
+  if (existingContracts === 0) {
+    await prisma.employmentContract.create({
+      data: {
+        staffId: staff1.id,
+        contractType: 'CDI',
+        startDate: new Date('2025-01-15'),
+        salary: 1200000,
+        assignmentLocation: 'Antenne Vakinankaratra',
+        status: 'active',
+      },
+    })
+  }
 
   console.log('Seed complete — super users:', email1, 'and', email2)
 }

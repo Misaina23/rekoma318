@@ -21,6 +21,7 @@ import mvolaRoutes from './routes/mvola.js'
 import stripeRoutes from './routes/stripe.js'
 import rolesRoutes from './routes/roles.js'
 import storeRoutes from './routes/store.js'
+import personnelRoutes from './routes/personnel.js'
 
 const app = express()
 
@@ -77,6 +78,7 @@ app.use('/api/mvola', mvolaRoutes)
 app.use('/api/stripe', stripeRoutes)
 app.use('/api/roles', rolesRoutes)
 app.use('/api/store', storeRoutes)
+app.use('/api/personnel', personnelRoutes)
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 app.get('/api/cors-debug', (req, res) => res.json({ origin: req.headers.origin || 'no-origin' }))

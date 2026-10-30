@@ -113,37 +113,48 @@ model GalleryPhoto {
 }
 
 model Activity {
-  id           String    @id @default(cuid())
-  title        String
-  responsible  String?
-  date         DateTime  @default(now())
-  budget       Int       @default(0)
-  objectives   String?
-  participants Int       @default(0)
-  results      String?
-  photos       String[]
-  documents    String[]
-  status       String    @default("planned")
-  deletedAt    DateTime? @db.Timestamptz(6)
+  id                 String                @id @default(cuid())
+  title              String
+  responsible        String?
+  responsibleStaffId String?               @map("responsible_staff_id")
+  date               DateTime              @default(now())
+  budget             Int                   @default(0)
+  objectives         String?
+  participants       Int                   @default(0)
+  results            String?
+  photos             String[]
+  documents          String[]
+  status             String                @default("planned")
+  deletedAt          DateTime?             @db.Timestamptz(6)
+  responsibleStaff   Staff?                @relation("ActivityResponsible", fields: [responsibleStaffId], references: [id], onDelete: SetNull)
+  beneficiaryLinks   ActivityBeneficiary[]
+
+  @@index([responsibleStaffId])
 }
 
 model Formation {
-  id            String        @id @default(cuid())
-  title         String
-  description   String?
-  session       String?
-  startDate     DateTime?
-  endDate       DateTime?
-  location      String?
-  trainer       String?
-  date          DateTime      @default(now())
-  participants  Int           @default(0)
-  attendees     Int           @default(0)
-  evaluation    Float         @default(0)
-  certificate   Boolean       @default(false)
-  status        String        @default("planned")
-  deletedAt     DateTime?     @db.Timestamptz(6)
-  beneficiaries Beneficiary[]
+  id             String                @id @default(cuid())
+  title          String
+  description    String?
+  session        String?
+  startDate      DateTime?
+  endDate        DateTime?
+  location       String?
+  trainer        String?
+  trainerStaffId String?               @map("trainer_staff_id")
+  date           DateTime              @default(now())
+  capacity       Int                   @default(30)
+  participants   Int                   @default(0)
+  attendees      Int                   @default(0)
+  evaluation     Float                 @default(0)
+  certificate    Boolean               @default(false)
+  status         String                @default("planned")
+  deletedAt      DateTime?             @db.Timestamptz(6)
+  trainerStaff   Staff?                @relation("FormationTrainer", fields: [trainerStaffId], references: [id], onDelete: SetNull)
+  enrollments    FormationEnrollment[]
+
+  @@index([trainerStaffId])
+  @@index([status])
 }
 
 model Member {
@@ -163,6 +174,7 @@ model Member {
   photo        String?
   deletedAt    DateTime? @db.Timestamptz(6)
   user         User?
+  staff        Staff?
 }
 
 model Donation {
@@ -215,29 +227,131 @@ model StoreOrder {
 }
 
 model Beneficiary {
-  id            String     @id @default(cuid())
-  firstName     String
-  lastName      String
-  cin           String?    @unique
-  birthDate     DateTime?
-  sex           String?    @default("M")
-  phone         String?
-  address       String?
-  commune       String?
-  name          String
-  category      String
-  formationId   String?
-  contact       String?
-  status        String?    @default("active")
-  attendance    String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @default(now()) @updatedAt
-  deletedAt     DateTime?  @db.Timestamptz(6)
-  formation     Formation? @relation(fields: [formationId], references: [id])
+  id                     String                @id @default(cuid())
+  firstName              String
+  lastName               String
+  cin                    String?               @unique
+  birthDate              DateTime?
+  sex                    String?               @default("M")
+  phone                  String?
+  email                  String?
+  address                String?
+  commune                String?
+  fokontany              String?
+  householdSize          Int?                  @map("household_size")
+  name                   String
+  category               String
+  contact                String?
+  status                 String?               @default("active")
+  notes                  String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @default(now()) @updatedAt
+  deletedAt              DateTime?             @db.Timestamptz(6)
+  formationEnrollments   FormationEnrollment[]
+  activityParticipations ActivityBeneficiary[]
 
   @@index([category])
-  @@index([formationId])
+  @@index([commune])
   @@index([cin])
+}
+
+model FormationEnrollment {
+  id                String      @id @default(cuid())
+  formationId       String      @map("formation_id")
+  beneficiaryId     String      @map("beneficiaire_id")
+  attendanceStatus  String      @default("enrolled") @map("statut_presence")
+  evaluationScore   Float?      @map("note_evaluation")
+  certificateIssued Boolean     @default(false) @map("attestation_delivree")
+  notes             String?
+  enrolledAt        DateTime    @default(now()) @map("date_inscription") @db.Timestamptz(6)
+  formation         Formation   @relation(fields: [formationId], references: [id], onDelete: Cascade)
+  beneficiary       Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@unique([formationId, beneficiaryId])
+  @@index([formationId])
+  @@index([beneficiaryId])
+  @@map("formation_beneficiaire")
+}
+
+model ActivityBeneficiary {
+  id             String      @id @default(cuid())
+  activityId     String      @map("activite_id")
+  beneficiaryId  String      @map("beneficiaire_id")
+  role           String?     @default("participant")
+  present        Boolean     @default(true)
+  notes          String?
+  participatedAt DateTime    @default(now()) @map("date_participation") @db.Timestamptz(6)
+  activity       Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  beneficiary    Beneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, beneficiaryId])
+  @@index([activityId])
+  @@index([beneficiaryId])
+  @@map("activite_beneficiaire")
+}
+
+model Staff {
+  id                  String               @id @default(cuid())
+  matricule           String               @unique
+  firstName           String               @map("prenom")
+  lastName            String               @map("nom")
+  cin                 String?              @unique
+  sex                 String               @default("M") @map("sexe")
+  birthDate           DateTime?            @map("date_naissance")
+  phone               String?              @map("telephone")
+  email               String?
+  address             String?              @map("adresse")
+  position            String               @map("poste")
+  department          String               @default("Coordination PDIMA") @map("departement")
+  hireDate            DateTime             @default(now()) @map("date_embauche")
+  status              String               @default("active") @map("statut")
+  evaluationScore     Float?               @map("note_suivi")
+  professionalNotes   String?              @map("suivi_professionnel")
+  memberId            String?              @unique @map("member_id")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  member              Member?              @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  contracts           EmploymentContract[]
+  formationsTrained   Formation[]          @relation("FormationTrainer")
+  activitiesManaged   Activity[]           @relation("ActivityResponsible")
+
+  @@index([department])
+  @@index([status])
+  @@map("personnel")
+}
+
+model EmploymentContract {
+  id                 String    @id @default(cuid())
+  staffId            String    @map("personnel_id")
+  contractType       String    @default("CDD") @map("type_contrat")
+  startDate          DateTime  @default(now()) @map("date_debut")
+  endDate            DateTime? @map("date_fin")
+  salary             Int       @default(0) @map("salaire_mensuel")
+  assignmentLocation String?   @map("lieu_affectation")
+  status             String    @default("active") @map("statut")
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  staff              Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([status])
+  @@map("contrat_personnel")
+}
+
+model SiteVisit {
+  id          String   @id @default(cuid())
+  day         String
+  path        String   @default("/")
+  visitorHash String?  @map("visitor_hash")
+  isAdmin     Boolean  @default(false) @map("is_admin")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([day])
+  @@index([path])
+  @@index([isAdmin, day])
+  @@map("site_visits")
 }
 
 model TwoFactorToken {

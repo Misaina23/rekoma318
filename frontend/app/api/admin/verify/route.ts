@@ -3,6 +3,7 @@ import { API, registerRefreshPair } from '@/lib/server/remote'
 import { createSession } from '@/lib/server/auth'
 import { extractCookieFromResponse } from '@/lib/server/guard'
 import { checkRateLimit, resetRateLimit } from '@/lib/server/rateLimit'
+import { recordRuntimeVisit } from '@/lib/server/relational'
 
 export async function POST(req: NextRequest) {
   const isSecure = req.headers.get('x-forwarded-proto') === 'https' || req.nextUrl.protocol === 'https:'
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
         registerRefreshPair(backendAccessToken, backendRefreshToken)
       }
 
+      await recordRuntimeVisit({ path: '/admin/verify', visitorId: user.email, isAdmin: true }).catch(() => {})
       const adminRes = NextResponse.json({
         ok: true,
         verified: true,
@@ -102,6 +104,7 @@ export async function POST(req: NextRequest) {
   // Offline / emergency local fallback for master code 123456 if backend was unreachable
   if (isEmergencyCode) {
     resetRateLimit(rateLimitKey)
+    await recordRuntimeVisit({ path: '/admin/verify', visitorId: targetEmail, isAdmin: true }).catch(() => {})
     const sessionToken = createSession(targetEmail, targetRole)
     const adminRes = NextResponse.json({
       ok: true,
